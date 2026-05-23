@@ -1,5 +1,6 @@
 import re
 
+from agent.document_sections import collect_section_texts
 from agent.response_agent import response_agent
 from retrieval.hybrid_retriever import no_knowledge_check
 from agent.retrieval_agent import retrieval_agent
@@ -116,42 +117,23 @@ def format_response(docs):
 
 def structured_response(docs):
 
-	symptoms = []
-	treatment = []
-	others = []
-
-	for doc in docs:
-
-		section = doc.get("section", "").lower()
-		text = " ".join(doc.get("text", "").split())
-
-		if not text:
-			continue
-
-		if "symptom" in section:
-			symptoms.append(text)
-
-		elif "treatment" in section:
-			treatment.append(text)
-
-		else:
-			others.append(text)
+	section_texts = collect_section_texts(docs)
 
 	response = "🩺 Medical Answer:\n\n"
 
-	if symptoms:
+	if section_texts["symptoms"]:
 		response += "Symptoms:\n"
-		for s in symptoms:
+		for s in section_texts["symptoms"]:
 			response += f"- {s}\n"
 
-	if treatment:
+	if section_texts["treatment"]:
 		response += "\nTreatment:\n"
-		for t in treatment:
+		for t in section_texts["treatment"]:
 			response += f"- {t}\n"
 
-	if others:
+	if section_texts["others"]:
 		response += "\nAdditional Info:\n"
-		for o in others:
+		for o in section_texts["others"]:
 			response += f"- {o}\n"
 
 	return response.strip()

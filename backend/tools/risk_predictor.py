@@ -1,9 +1,18 @@
+"""Simple blood-pressure risk prediction helper."""
+
+
 def predict_risk(age, blood_pressure):
+    """Return a coarse risk message for an age and blood-pressure reading."""
 
-	if blood_pressure > 150:
-		return f"High risk: Age {age} with blood pressure {blood_pressure}. Blood pressure is dangerously high."
+    reading = f"Age {age} with blood pressure {blood_pressure}"
 
-	if blood_pressure > 130:
-		return f"Moderate risk: Age {age} with blood pressure {blood_pressure}. Monitor blood pressure."
+    if blood_pressure > 150:
+        return f"High risk: {reading}. Blood pressure is dangerously high."
 
-	return f"Normal blood pressure range for this simple check: Age {age}, blood pressure {blood_pressure}."
+    if blood_pressure > 130:
+        return f"Moderate risk: {reading}. Monitor blood pressure."
+
+    return (
+        "Normal blood pressure range for this simple check: "
+        f"Age {age}, blood pressure {blood_pressure}."
+    )

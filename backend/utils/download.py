@@ -1,9 +1,13 @@
+"""Download utilities for preparing local backend assets."""
+
 import os
 
-import requests
+import requests  # pylint: disable=import-error
 
 
 def download_file(url, path):
+    """Download a URL to a local path unless the file already exists."""
+
     if os.path.exists(path):
         print(f"{path} already exists")
         return
@@ -19,5 +23,5 @@ def download_file(url, path):
                     f.write(chunk)
 
         print(f"Downloaded {path}")
-    except Exception as e:
-        print(f"Failed to download {path}: {e}")
+    except (OSError, requests.RequestException) as error:
+        print(f"Failed to download {path}: {error}")

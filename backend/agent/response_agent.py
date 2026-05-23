@@ -1,3 +1,4 @@
+from agent.document_sections import collect_section_docs
 from agent.health_insights import generate_insights
 
 
@@ -10,42 +11,23 @@ def _grounded_line(doc):
 
 def structured_response(docs):
 
-	symptoms = []
-	treatment = []
-	others = []
-
-	for doc in docs:
-
-		section = doc.get("section", "").lower()
-		text = " ".join(doc.get("text", "").split())
-
-		if not text:
-			continue
-
-		if "symptom" in section:
-			symptoms.append(doc)
-
-		elif "treatment" in section:
-			treatment.append(doc)
-
-		else:
-			others.append(doc)
+	section_docs = collect_section_docs(docs)
 
 	response = "🩺 Medical Answer:\n\n"
 
-	if symptoms:
+	if section_docs["symptoms"]:
 		response += "Symptoms:\n"
-		for doc in symptoms:
+		for doc in section_docs["symptoms"]:
 			response += _grounded_line(doc) + "\n"
 
-	if treatment:
+	if section_docs["treatment"]:
 		response += "\nTreatment:\n"
-		for doc in treatment:
+		for doc in section_docs["treatment"]:
 			response += _grounded_line(doc) + "\n"
 
-	if others:
+	if section_docs["others"]:
 		response += "\nAdditional Info:\n"
-		for doc in others:
+		for doc in section_docs["others"]:
 			response += _grounded_line(doc) + "\n"
 
 	return response.strip()
