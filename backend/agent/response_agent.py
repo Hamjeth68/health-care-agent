@@ -1,40 +1,44 @@
+"""Response formatting for retrieved medical documents and insights."""
+
 from agent.document_sections import collect_section_docs
 from agent.health_insights import generate_insights
 
 
 def _grounded_line(doc):
-	text = " ".join(doc.get("text", "").split())
-	name = doc.get("name", "Unknown")
-	section = doc.get("section", "overview")
-	return f"- {text} ({name} - {section})"
+    text = " ".join(doc.get("text", "").split())
+    name = doc.get("name", "Unknown")
+    section = doc.get("section", "overview")
+    return f"- {text} ({name} - {section})"
 
 
 def structured_response(docs):
+    """Format retrieved documents into grounded medical answer sections."""
 
-	section_docs = collect_section_docs(docs)
+    section_docs = collect_section_docs(docs)
 
-	response = "🩺 Medical Answer:\n\n"
+    response = "🩺 Medical Answer:\n\n"
 
-	if section_docs["symptoms"]:
-		response += "Symptoms:\n"
-		for doc in section_docs["symptoms"]:
-			response += _grounded_line(doc) + "\n"
+    if section_docs["symptoms"]:
+        response += "Symptoms:\n"
+        for doc in section_docs["symptoms"]:
+            response += _grounded_line(doc) + "\n"
 
-	if section_docs["treatment"]:
-		response += "\nTreatment:\n"
-		for doc in section_docs["treatment"]:
-			response += _grounded_line(doc) + "\n"
+    if section_docs["treatment"]:
+        response += "\nTreatment:\n"
+        for doc in section_docs["treatment"]:
+            response += _grounded_line(doc) + "\n"
 
-	if section_docs["others"]:
-		response += "\nAdditional Info:\n"
-		for doc in section_docs["others"]:
-			response += _grounded_line(doc) + "\n"
+    if section_docs["others"]:
+        response += "\nAdditional Info:\n"
+        for doc in section_docs["others"]:
+            response += _grounded_line(doc) + "\n"
 
-	return response.strip()
+    return response.strip()
 
 
 def response_agent(docs):
+    """Build the final response from retrieved documents and generated insights."""
 
-	insights = generate_insights(docs)
+    insights = generate_insights(docs)
 
-	return structured_response(docs) + "\n\n🔍 Insights:\n" + insights
+    return structured_response(docs) + "\n\n🔍 Insights:\n" + insights
