@@ -38,6 +38,15 @@ Key contributions include:
 
 ---
 
+## 🚀 Quick Setup
+
+**For local development:**
+1. Read [SETUP.md](./SETUP.md) for frontend & backend setup
+2. Read [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for Supabase integration
+3. See [SUPABASE_QUICK_REF.md](./SUPABASE_QUICK_REF.md) for quick reference
+
+---
+
 ## Core Features
 
 - Hybrid retrieval pipeline using FAISS + BM25 + reranking.
