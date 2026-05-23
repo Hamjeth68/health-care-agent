@@ -1,43 +1,66 @@
 # AI-Powered Healthcare Monitoring Agent
 
-An AI healthcare monitoring system that combines medical retrieval, tool-based reasoning, and vitals-aware risk summaries. The project is designed as a practical assistant for asking health questions, checking medication and risk signals, and explaining monitored vitals in a safer, structured way.
+An AI-driven healthcare monitoring platform that combines Retrieval-Augmented Generation (RAG), multi-agent orchestration, medical knowledge retrieval, and vitals-aware monitoring to provide structured healthcare insights, patient risk summaries, and intelligent medical assistance.
 
-## Built / Modified By
+The system is designed to support healthcare-related question answering, patient monitoring workflows, medication awareness, and health-risk evaluation through an interactive AI-powered assistant.
 
-Customized and extended by **Hamjeth** as a personal AI healthcare monitoring project.
+---
 
-My contribution focus:
+## My Contributions
 
-- Rebranded the project as **AI-Powered Healthcare Monitoring Agent**.
-- Added a vitals monitoring API endpoint: `POST /monitoring/summary`.
-- Added a monitoring-focused home page section with patient snapshot cards.
-- Cleaned Windows startup issues caused by non-ASCII backend log symbols.
-- Set up the local development environment for frontend and backend.
-- Added documentation, demo flow, presentation outline, and explanation material.
+Worked as a Full Stack / AI Engineer focusing on system setup, monitoring workflows, frontend enhancements, backend APIs, and developer experience improvements.
 
-## What It Does
+Key contributions include:
 
-- Answers healthcare questions using a hybrid RAG pipeline.
-- Retrieves from medical, drug, disease, nutrition, and guideline knowledge.
-- Uses a FastAPI backend with endpoints for chat, prediction, interaction checks, profiles, and monitoring summaries.
-- Provides a React frontend with Home, Chat, About, Login, and Signup flows.
-- Supports Supabase auth/profile/history integration when credentials are configured.
-- Produces vitals-aware summaries for blood pressure, heart rate, temperature, glucose, and oxygen saturation.
+- Rebranded and restructured the project as **AI-Powered Healthcare Monitoring Agent**.
+- Designed and implemented a vitals monitoring API endpoint: `POST /monitoring/summary`.
+- Added monitoring-focused dashboard sections with patient snapshot cards and healthcare insights UI.
+- Improved frontend user experience and monitoring visualization flows.
+- Fixed Windows environment startup issues caused by non-ASCII backend logging symbols.
+- Configured and stabilized local development environments for both frontend and backend services.
+- Added project documentation, setup instructions, walkthroughs, presentation materials, and demo flows.
+- Enhanced healthcare monitoring explanations and structured response formatting.
+- Assisted in backend integration and API workflow validation.
+- Improved project maintainability and development onboarding experience.
 
-## Main Features
+---
 
-- Hybrid retrieval with FAISS, BM25, and reranking.
-- Multi-agent backend structure for retrieval, response generation, and tool routing.
-- Drug interaction and health risk tooling.
-- Conversation memory for follow-up questions.
-- Vitals monitoring summary endpoint with risk status, alerts, and recommendations.
-- Clean healthcare monitoring UI with light/dark theme support.
-- Local-first setup with downloaded RAG assets.
+## What The Platform Does
+
+- Answers healthcare-related questions using a hybrid RAG architecture.
+- Retrieves contextual information from medical, disease, nutrition, and medication knowledge sources.
+- Provides AI-assisted healthcare monitoring summaries based on patient vitals.
+- Generates structured alerts, risk indicators, and recommendations.
+- Supports conversation memory for contextual healthcare discussions.
+- Exposes FastAPI-based endpoints for monitoring, chat, predictions, interaction checks, and profile management.
+- Provides a modern React frontend with authentication and monitoring workflows.
+- Integrates with Supabase for authentication, profiles, and conversation history.
+
+---
+
+## Core Features
+
+- Hybrid retrieval pipeline using FAISS + BM25 + reranking.
+- Multi-agent backend orchestration architecture.
+- AI-powered healthcare question answering.
+- Drug interaction and health-risk tooling.
+- Vitals monitoring with risk scoring and recommendations.
+- Monitoring dashboard with patient summary cards.
+- Conversation memory and contextual follow-up support.
+- Responsive UI with dark/light theme support.
+- Local-first architecture with downloadable RAG assets.
+- Structured monitoring summaries for:
+  - Blood Pressure
+  - Heart Rate
+  - Temperature
+  - Glucose Levels
+  - Oxygen Saturation
+
+---
 
 ## Tech Stack
 
-Frontend:
-
+### Frontend
 - React
 - TypeScript
 - Vite
@@ -46,130 +69,39 @@ Frontend:
 - Lucide React
 - Supabase JS
 
-Backend:
-
+### Backend
 - Python
 - FastAPI
 - Uvicorn
 - FAISS
 - Sentence Transformers
-- Cross-Encoder reranking
+- Cross-Encoder Reranking
 - BM25
-- Supabase Python client
+- Supabase Python Client
 
-## Project Structure
+---
+
+## Architecture Overview
 
 ```text
 backend/
-  agent/                 Multi-agent pipeline modules
-  retrieval/             Hybrid RAG retriever
-  tools/                 Drug, risk, alert, reminder, analytics tools
-  utils/                 Download helpers
-  api.py                 FastAPI application
+  agent/                 Multi-agent orchestration modules
+  retrieval/             Hybrid RAG retrieval pipeline
+  tools/                 Drug, risk, alert, analytics tools
+  utils/                 Utilities and download helpers
+  api.py                 FastAPI application entrypoint
   requirements.txt       Backend dependencies
 
 frontend/
   src/
-    components/          Navbar, chat message, sidebar, routes
+    components/          Shared UI components
     pages/               Home, Chat, About, Login, Signup
-    context/             Auth and theme contexts
-  public/                Logo, icons, manifest
-  package.json           Frontend scripts and dependencies
+    context/             Authentication and theme providers
+  public/                Static assets and branding
+  package.json           Frontend dependencies
 
 docs/
   CONTRIBUTIONS.md
   DEMO_SCRIPT.md
   PRESENTATION_OUTLINE.md
   PROJECT_WALKTHROUGH.md
-```
-
-## Local URLs
-
-After setup:
-
-- Frontend: `http://127.0.0.1:8080`
-- Backend health: `http://127.0.0.1:8000/health`
-- Swagger API docs: `http://127.0.0.1:8000/docs`
-
-## Quick Start
-
-Backend:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-cd backend
-..\.venv\Scripts\python.exe -m uvicorn api:app --host 127.0.0.1 --port 8000
-```
-
-Frontend:
-
-```powershell
-cd frontend
-npm.cmd install
-npm.cmd run dev -- --host 127.0.0.1 --port 8080
-```
-
-## Environment Variables
-
-Frontend uses `frontend/.env`:
-
-```env
-VITE_API_URL=http://127.0.0.1:8000
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-```
-
-Backend can use `backend/.env`:
-
-```env
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-CORS_ALLOW_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
-```
-
-## New Monitoring API
-
-Endpoint:
-
-```http
-POST /monitoring/summary
-```
-
-Example request:
-
-```json
-{
-  "age": 55,
-  "systolic_bp": 160,
-  "diastolic_bp": 95,
-  "heart_rate": 92,
-  "temperature_c": 37.1,
-  "glucose_mg_dl": 112,
-  "oxygen_saturation": 97
-}
-```
-
-Example response:
-
-```json
-{
-  "status": "watch",
-  "risk_score": 2,
-  "alerts": ["Blood pressure is elevated."],
-  "recommendations": ["Rest, recheck blood pressure, reduce salt/caffeine today, and consult a clinician if it stays high."],
-  "disclaimer": "This monitoring summary is informational and does not replace professional medical advice."
-}
-```
-
-## Important Safety Note
-
-This project is for educational and informational use. It does not diagnose disease, prescribe treatment, or replace a qualified healthcare professional.
-
-## Supporting Docs
-
-- [Setup Guide](SETUP.md)
-- [Contribution Record](docs/CONTRIBUTIONS.md)
-- [Project Walkthrough](docs/PROJECT_WALKTHROUGH.md)
-- [Demo Script](docs/DEMO_SCRIPT.md)
-- [Presentation Outline](docs/PRESENTATION_OUTLINE.md)
