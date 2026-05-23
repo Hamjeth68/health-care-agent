@@ -1,0 +1,33 @@
+# Keep large/generated backend assets untracked
+/backend/Datasets/
+/backend/medical_rag_dataset.json
+/backend/medical_vector_db.faiss
+
+# Python environment and cache artifacts
+.venv/
+**/__pycache__/
+*.pyc
+
+# Generated script outputs (rebuildable)
+/backend/Scripts/disease/disease_rag.json
+/backend/Scripts/drug/drug_rag_final.json
+/backend/Scripts/guideline_rag.json
+/backend/Scripts/nutrition_rag.json
+
+# Local archive bundles
+/backend/datasets.zip
+/node_modules/
+/frontend/node_modules/
+/frontend/medical-frontend/node_modules/
+/mobile/node_modules/
+/mobile/.expo/
+/dist/
+/frontend/dist/
+/frontend/medical-frontend/dist/
+/mobile/dist/
+backend/.env
+frontend/.env
+mobile/.env
+backend-server*.log
+frontend-server*.log
+mobile/expo-server*.log

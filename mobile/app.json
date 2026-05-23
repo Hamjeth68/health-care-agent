@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Healthcare Monitor AI",
+    "slug": "healthcare-monitor-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "healthmonitorai",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hamjeth.healthcaremonitorai"
+    },
+    "android": {
+      "package": "com.hamjeth.healthcaremonitorai",
+      "adaptiveIcon": {
+        "backgroundColor": "#F6FAF8"
+      }
+    },
+    "extra": {
+      "apiUrl": "http://127.0.0.1:8000",
+      "supabaseUrl": "",
+      "supabaseAnonKey": ""
+    }
+  }
+}
