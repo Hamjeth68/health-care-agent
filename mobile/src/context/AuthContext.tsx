@@ -1,6 +1,6 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getProfile, updateProfile } from "../services/api";
+import { getProfile, syncAuthenticatedProfile, updateProfile } from "../services/api";
 import { isSupabaseConfigured, supabase } from "../services/supabase";
 import type { Profile } from "../types";
 
@@ -41,7 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const nextProfile = await getProfile(user.id);
-      setProfile(nextProfile?.id ? nextProfile : null);
+      if (nextProfile?.id) {
+        setProfile(nextProfile);
+        return;
+      }
+
+      const metadata = user.user_metadata ?? {};
+      const synced = await syncAuthenticatedProfile(metadata.name, metadata.phone);
+      setProfile(synced.profile);
     } catch {
       setProfile(null);
     }
@@ -83,13 +90,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setAuthError("");
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password
     });
     if (error) {
       setAuthError(error.message);
       throw error;
+    }
+    if (data.session) {
+      await syncAuthenticatedProfile().catch(() => undefined);
     }
   }, []);
 
@@ -107,7 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (data.user && data.session) {
-      await updateProfile(data.user.id, name.trim(), phone.trim()).catch(() => undefined);
+      const synced = await syncAuthenticatedProfile(name.trim(), phone.trim()).catch(() => null);
+      if (synced?.profile) {
+        setProfile(synced.profile);
+      } else {
+        await updateProfile(data.user.id, name.trim(), phone.trim()).catch(() => undefined);
+      }
     }
 
     return { emailConfirmationRequired: !data.session };

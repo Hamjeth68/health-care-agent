@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timezone
@@ -112,6 +112,11 @@ class ProfileUpdateRequest(BaseModel):
 	phone: str | None = None
 
 
+class ProfileSyncRequest(BaseModel):
+	name: str | None = None
+	phone: str | None = None
+
+
 class InteractionRequest(BaseModel):
 	drug1: str
 	drug2: str
@@ -125,6 +130,74 @@ class VitalsRequest(BaseModel):
 	temperature_c: float | None = None
 	glucose_mg_dl: int | None = None
 	oxygen_saturation: int | None = None
+
+
+def _require_supabase() -> Client:
+	if not supabase:
+		raise HTTPException(
+			status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+			detail="Supabase is not configured on the backend.",
+		)
+	return supabase
+
+
+def _extract_bearer_token(authorization: str | None) -> str:
+	if not authorization:
+		raise HTTPException(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail="Missing Authorization header.",
+		)
+
+	scheme, _, token = authorization.partition(" ")
+	if scheme.lower() != "bearer" or not token:
+		raise HTTPException(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail="Authorization header must use Bearer token.",
+		)
+
+	return token
+
+
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
+	client = _require_supabase()
+	token = _extract_bearer_token(authorization)
+
+	try:
+		auth_user = client.auth.get_user(token).user
+	except Exception as exc:
+		raise HTTPException(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail="Invalid or expired Supabase session.",
+		) from exc
+
+	if not auth_user:
+		raise HTTPException(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail="Invalid or expired Supabase session.",
+		)
+
+	return {
+		"id": auth_user.id,
+		"email": auth_user.email,
+		"metadata": auth_user.user_metadata or {},
+	}
+
+
+def _assert_same_user(requested_user_id: str, current_user: dict) -> None:
+	if requested_user_id != current_user["id"]:
+		raise HTTPException(
+			status_code=status.HTTP_403_FORBIDDEN,
+			detail="You can only access your own account.",
+		)
+
+
+def _profile_payload(user_id: str, name: str | None = None, phone: str | None = None) -> dict:
+	payload = {"id": user_id}
+	if name is not None:
+		payload["name"] = name
+	if phone is not None:
+		payload["phone"] = phone
+	return payload
 
 
 # --------------- Endpoints ---------------
@@ -198,7 +271,11 @@ def monitoring_summary(req: VitalsRequest):
 
 
 @app.post("/ask")
-async def ask(req: QueryRequest):
+async def ask(req: QueryRequest, current_user: dict = Depends(get_current_user)):
+	if req.user_id:
+		_assert_same_user(req.user_id, current_user)
+	user_id = current_user["id"]
+
 	def run_pipeline():
 		agent = load_medical_agent()
 		memory = [{"user": m["user"], "assistant": m["bot"]} for m in chat_history[-12:]]
@@ -211,10 +288,10 @@ async def ask(req: QueryRequest):
 			"created_at": datetime.now(timezone.utc).isoformat(),
 		})
 
-		if supabase and req.user_id:
+		if supabase:
 			try:
 				supabase.table("chat_history").insert({
-					"user_id": req.user_id,
+					"user_id": user_id,
 					"query": req.query,
 					"response": response
 				}).execute()
@@ -232,11 +309,11 @@ async def ask(req: QueryRequest):
 
 
 @app.get("/history")
-async def get_history(user_id: str):
-	if not supabase:
-		return {"data": []}
+async def get_history(user_id: str, current_user: dict = Depends(get_current_user)):
+	_assert_same_user(user_id, current_user)
+	client = _require_supabase()
 	try:
-		res = supabase.table("chat_history") \
+		res = client.table("chat_history") \
 			.select("*") \
 			.eq("user_id", user_id) \
 			.order("created_at", desc=False) \
@@ -247,11 +324,11 @@ async def get_history(user_id: str):
 
 
 @app.delete("/clear")
-async def clear_history(user_id: str):
-	if not supabase:
-		return {"status": "cleared"}
+async def clear_history(user_id: str, current_user: dict = Depends(get_current_user)):
+	_assert_same_user(user_id, current_user)
+	client = _require_supabase()
 	try:
-		supabase.table("chat_history") \
+		client.table("chat_history") \
 			.delete() \
 			.eq("user_id", user_id) \
 			.execute()
@@ -261,11 +338,11 @@ async def clear_history(user_id: str):
 
 
 @app.get("/profile")
-async def get_profile(user_id: str):
-	if not supabase:
-		return {}
+async def get_profile(user_id: str, current_user: dict = Depends(get_current_user)):
+	_assert_same_user(user_id, current_user)
+	client = _require_supabase()
 	try:
-		res = supabase.table("profiles") \
+		res = client.table("profiles") \
 			.select("*") \
 			.eq("id", user_id) \
 			.single() \
@@ -276,24 +353,34 @@ async def get_profile(user_id: str):
 
 
 @app.put("/profile")
-async def update_profile(req: ProfileUpdateRequest):
-	if not supabase:
-		return {}
+async def update_profile(req: ProfileUpdateRequest, current_user: dict = Depends(get_current_user)):
+	_assert_same_user(req.user_id, current_user)
+	client = _require_supabase()
 	try:
-		data_to_update = {}
-		if req.name is not None:
-			data_to_update["name"] = req.name
-		if req.phone is not None:
-			data_to_update["phone"] = req.phone
-		
-		if not data_to_update:
+		payload = _profile_payload(req.user_id, req.name, req.phone)
+		if len(payload) == 1:
 			return {"status": "no data to update"}
 
-		res = supabase.table("profiles") \
-			.update(data_to_update) \
-			.eq("id", req.user_id) \
+		res = client.table("profiles") \
+			.upsert(payload) \
 			.execute()
 		return {"status": "updated", "data": res.data}
+	except Exception as e:
+		return {"error": str(e)}
+
+
+@app.post("/auth/profile")
+async def sync_profile(req: ProfileSyncRequest, current_user: dict = Depends(get_current_user)):
+	client = _require_supabase()
+	metadata = current_user["metadata"]
+	name = req.name if req.name is not None else metadata.get("name")
+	phone = req.phone if req.phone is not None else metadata.get("phone")
+
+	try:
+		res = client.table("profiles") \
+			.upsert(_profile_payload(current_user["id"], name, phone)) \
+			.execute()
+		return {"status": "synced", "profile": res.data[0] if res.data else None}
 	except Exception as e:
 		return {"error": str(e)}
 

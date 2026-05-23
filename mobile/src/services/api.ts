@@ -1,19 +1,37 @@
 import { API_URL } from "../config";
+import { supabase } from "./supabase";
 import type { MonitoringPayload, MonitoringSummary, Profile } from "../types";
 
-type RequestOptions = RequestInit & { timeoutMs?: number };
+type RequestOptions = Omit<RequestInit, "headers"> & {
+  auth?: boolean;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+};
+
+async function getAuthHeaders(enabled: boolean): Promise<Record<string, string>> {
+  if (!enabled) {
+    return {};
+  }
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 20000);
+  const { auth = true, timeoutMs: _timeoutMs, headers, ...fetchOptions } = options;
 
   try {
+    const authHeaders = await getAuthHeaders(auth);
     const response = await fetch(`${API_URL}${path}`, {
-      ...options,
+      ...fetchOptions,
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        ...options.headers
+        ...authHeaders,
+        ...headers
       }
     });
 
@@ -46,8 +64,16 @@ export function updateProfile(userId: string, name?: string, phone?: string) {
   });
 }
 
+export function syncAuthenticatedProfile(name?: string, phone?: string) {
+  return request<{ status: string; profile: Profile | null }>("/auth/profile", {
+    method: "POST",
+    body: JSON.stringify({ name, phone })
+  });
+}
+
 export function getMonitoringSummary(payload: MonitoringPayload) {
   return request<MonitoringSummary>("/monitoring/summary", {
+    auth: false,
     method: "POST",
     body: JSON.stringify(payload)
   });
@@ -55,6 +81,7 @@ export function getMonitoringSummary(payload: MonitoringPayload) {
 
 export function checkDrugInteraction(drug1: string, drug2: string) {
   return request<{ interaction: string }>("/interaction", {
+    auth: false,
     method: "POST",
     body: JSON.stringify({ drug1, drug2 })
   });
@@ -62,6 +89,7 @@ export function checkDrugInteraction(drug1: string, drug2: string) {
 
 export function predictRisk(age: number, bp: number) {
   return request<{ prediction: string }>("/predict", {
+    auth: false,
     method: "POST",
     body: JSON.stringify({ age, bp })
   });
