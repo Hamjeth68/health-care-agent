@@ -2,7 +2,7 @@
 /backend/Datasets/
 /backend/medical_rag_dataset.json
 /backend/medical_vector_db.faiss
-
+.history
 # Python environment and cache artifacts
 .venv/
 **/__pycache__/
