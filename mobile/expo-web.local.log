@@ -136,3 +136,4 @@ Web Bundling failed 38430ms node_modules\expo\AppEntry.js (4 modules)
  ERROR  App.tsx: A jest worker process (pid=29540) was terminated by another process: signal=SIGTERM, exitCode=null. Operating system logs may contain more information on why this occurred.
 Web Bundling failed 21564ms node_modules\expo\AppEntry.js (854 modules)
 Unable to resolve "expo-font" from "node_modules\@expo\vector-icons\build\createIconSet.js"
+› Detected a change in babel.config.js. Restart the server to see the new results. You may need to clear the bundler cache with the --clear flag for your changes to take effect.
