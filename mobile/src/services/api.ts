@@ -21,7 +21,7 @@ async function getAuthHeaders(enabled: boolean): Promise<Record<string, string>>
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 20000);
-  const { auth = true, timeoutMs: _timeoutMs, headers, ...fetchOptions } = options;
+  const { auth = true, headers, ...fetchOptions } = options;
 
   try {
     const authHeaders = await getAuthHeaders(auth);

@@ -8,6 +8,7 @@ import { Screen } from "../components/Screen";
 import { TextField } from "../components/TextField";
 import { checkDrugInteraction, predictRisk } from "../services/api";
 import { colors } from "../theme";
+import { getErrorMessage } from "../utils/errors";
 
 export function ToolsScreen() {
   const [drug1, setDrug1] = useState("aspirin");
@@ -28,8 +29,8 @@ export function ToolsScreen() {
     try {
       const result = await checkDrugInteraction(drug1, drug2);
       setInteraction(result.interaction);
-    } catch (error: any) {
-      Alert.alert("Tool unavailable", error?.message || "Check that the backend is running.");
+    } catch (error: unknown) {
+      Alert.alert("Tool unavailable", getErrorMessage(error, "Check that the backend is running."));
     } finally {
       setLoadingInteraction(false);
     }
@@ -46,8 +47,8 @@ export function ToolsScreen() {
     try {
       const result = await predictRisk(parsedAge, parsedBp);
       setPrediction(result.prediction);
-    } catch (error: any) {
-      Alert.alert("Tool unavailable", error?.message || "Check that the backend is running.");
+    } catch (error: unknown) {
+      Alert.alert("Tool unavailable", getErrorMessage(error, "Check that the backend is running."));
     } finally {
       setLoadingRisk(false);
     }

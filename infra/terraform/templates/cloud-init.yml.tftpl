@@ -1,0 +1,92 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - git
+  - nginx
+  - python3-venv
+  - python3-pip
+  - build-essential
+  - curl
+
+write_files:
+  - path: /etc/nginx/sites-available/health-care-agent
+    owner: root:root
+    permissions: "0644"
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name _;
+
+          client_max_body_size 10m;
+
+          location / {
+              if ($http_x_origin_secret != "${origin_secret}") {
+                  return 403;
+              }
+
+              proxy_pass http://127.0.0.1:8000;
+              proxy_http_version 1.1;
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+              proxy_read_timeout 180s;
+              proxy_connect_timeout 30s;
+              proxy_send_timeout 180s;
+          }
+      }
+  - path: /etc/systemd/system/health-care-agent.service
+    owner: root:root
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=AI-Powered Healthcare Monitoring Agent API
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      Group=ubuntu
+      WorkingDirectory=${project_directory}/backend
+      EnvironmentFile=${project_directory}/backend/.env
+      ExecStart=${project_directory}/.venv/bin/uvicorn api:app --host 127.0.0.1 --port 8000
+      Restart=always
+      RestartSec=10
+      TimeoutStartSec=300
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - fallocate -l 2G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - sh -c 'echo "/swapfile none swap sw 0 0" >> /etc/fstab'
+  - rm -rf ${project_directory}
+  - git clone --branch ${repo_branch} --depth 1 ${repo_url} ${project_directory}
+  - chown -R ubuntu:ubuntu ${project_directory}
+  - python3 -m venv ${project_directory}/.venv
+  - ${project_directory}/.venv/bin/python -m pip install --upgrade pip wheel
+  - ${project_directory}/.venv/bin/pip install -r ${project_directory}/backend/requirements.txt
+  - |
+    cat > ${project_directory}/backend/.env <<'EOF'
+    # Fill these on EC2 after Terraform apply. Do not commit real values.
+    SUPABASE_URL=
+    SUPABASE_SERVICE_ROLE_KEY=
+    CORS_ALLOW_ORIGINS=${frontend_origin}
+    EOF
+  - chown ubuntu:ubuntu ${project_directory}/backend/.env
+  - chmod 600 ${project_directory}/backend/.env
+  - rm -f /etc/nginx/sites-enabled/default
+  - ln -sf /etc/nginx/sites-available/health-care-agent /etc/nginx/sites-enabled/health-care-agent
+  - nginx -t
+  - systemctl enable nginx
+  - systemctl restart nginx
+  - systemctl daemon-reload
+  - systemctl enable health-care-agent
+  - systemctl restart health-care-agent

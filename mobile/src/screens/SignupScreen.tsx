@@ -10,6 +10,7 @@ import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import type { AuthStackParamList } from "../navigation/types";
 import { colors, spacing } from "../theme";
+import { getErrorMessage } from "../utils/errors";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Signup">;
 
@@ -33,8 +34,8 @@ export function SignupScreen({ navigation }: Props) {
         Alert.alert("Confirm your email", "Open the confirmation link, then sign in.");
         navigation.navigate("Login");
       }
-    } catch (error: any) {
-      Alert.alert("Signup failed", error?.message || "Please try again.");
+    } catch (error: unknown) {
+      Alert.alert("Signup failed", getErrorMessage(error, "Please try again."));
     } finally {
       setLoading(false);
     }

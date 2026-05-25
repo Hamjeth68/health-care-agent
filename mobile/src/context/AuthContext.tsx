@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const user = session?.user ?? null;
+  const userMetadata = user?.user_metadata;
 
   const refreshProfile = useCallback(async () => {
     if (!user?.id) {
@@ -46,13 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const metadata = user.user_metadata ?? {};
+      const metadata = userMetadata ?? {};
       const synced = await syncAuthenticatedProfile(metadata.name, metadata.phone);
       setProfile(synced.profile);
     } catch {
       setProfile(null);
     }
-  }, [user?.id]);
+  }, [user?.id, userMetadata]);
 
   useEffect(() => {
     let mounted = true;

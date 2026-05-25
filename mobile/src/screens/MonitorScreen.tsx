@@ -12,6 +12,7 @@ import { TextField } from "../components/TextField";
 import { getMonitoringSummary } from "../services/api";
 import { colors, shadow, spacing } from "../theme";
 import type { MonitoringPayload, MonitoringSummary } from "../types";
+import { getErrorMessage } from "../utils/errors";
 
 function toNumber(value: string) {
   const parsed = Number(value);
@@ -60,8 +61,8 @@ export function MonitorScreen() {
     setLoading(true);
     try {
       setSummary(await getMonitoringSummary(payload));
-    } catch (error: any) {
-      Alert.alert("Monitoring unavailable", error?.message || "Check that the FastAPI backend is running.");
+    } catch (error: unknown) {
+      Alert.alert("Monitoring unavailable", getErrorMessage(error, "Check that the FastAPI backend is running."));
     } finally {
       setLoading(false);
     }

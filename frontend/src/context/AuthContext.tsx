@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import supabase from '../supabase';
+import { getProfile, syncAuthenticatedProfile, updateProfile } from '../services/api';
 
 export interface Profile {
   id: string;
@@ -30,36 +31,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-async function fetchProfile(userId: string): Promise<Profile | null> {
-  try {
-    const res = await fetch(`${API_URL}/profile?user_id=${userId}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.error || !data.id) return null;
-    return data as Profile;
-  } catch {
-    return null;
-  }
-}
-
-async function updateProfile(userId: string, name?: string, phone?: string): Promise<void> {
-  const payload: any = { user_id: userId };
-  if (name !== undefined) payload.name = name;
-  if (phone !== undefined) payload.phone = phone;
-
-  try {
-    await fetch(`${API_URL}/profile`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  } catch (error) {
-    console.warn("Failed to update profile via API", error);
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -80,11 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const profileData = await fetchProfile(targetId);
-      setProfile(profileData);
+      const profileData = await getProfile(targetId);
+      if (profileData?.id) {
+        setProfile(profileData);
+        return;
+      }
+
+      const metadata = user?.user_metadata ?? {};
+      const synced = await syncAuthenticatedProfile(metadata.name, metadata.phone);
+      setProfile(synced.profile);
     } catch (error: any) {
       setProfile(null);
-      setAuthError(error.message || 'Unable to load profile.');
+      if (error.message && !error.message.includes('JSON')) {
+        setAuthError(error.message || 'Unable to load profile.');
+      }
     }
   }, [user?.id]);
 
@@ -114,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (activeSession?.user?.id) {
         try {
-          const profileData = await fetchProfile(activeSession.user.id);
+          const profileData = await getProfile(activeSession.user.id);
           if (mounted) {
             setProfile(profileData);
           }
@@ -153,7 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const profileData = await fetchProfile(nextSession.user.id);
+        let profileData = await getProfile(nextSession.user.id);
+        if (!profileData?.id) {
+          const metadata = nextSession.user.user_metadata ?? {};
+          const synced = await syncAuthenticatedProfile(metadata.name, metadata.phone);
+          profileData = synced.profile as Profile;
+        }
         if (mounted) {
           setProfile(profileData);
         }
@@ -208,7 +193,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data?.user) {
       const metadata = data.user.user_metadata;
       if (metadata?.name || metadata?.phone) {
-        await updateProfile(data.user.id, metadata.name, metadata.phone);
+        await syncAuthenticatedProfile(metadata.name, metadata.phone).catch(() =>
+          updateProfile(data.user.id, metadata.name, metadata.phone)
+        );
       }
     }
   }, []);
@@ -258,8 +245,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw metadataError;
     }
 
-    // B) After login/signup, run update to ensure profile is populated:
-    await updateProfile(signedUpUser.id, name.trim(), phone.trim());
+    await syncAuthenticatedProfile(name.trim(), phone.trim()).catch(() =>
+      updateProfile(signedUpUser.id, name.trim(), phone.trim())
+    );
 
     await refreshProfile(signedUpUser.id);
 

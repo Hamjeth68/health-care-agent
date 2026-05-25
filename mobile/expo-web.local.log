@@ -1,0 +1,138 @@
+
+> healthcare-monitoring-mobile@1.0.0 web
+> expo start --web --port 8082
+
+env: load .env
+env: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY
+Starting project at C:\Users\user\Desktop\Hamjeth\health-care-agent-\mobile
+Starting Metro Bundler
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+| 
+| 
+| #
+| # Fatal error in , line 0
+| # Out of memory: HashMap::Initialize
+| #
+| #
+| #
+| #FailureMessage Object: 0000004E6F1FA160
+| ----- Native stack trace -----
+| 
+|  1: 00007FF792A56F4D 
+|  2: 00007FF793EBE05F 
+|  3: 00007FF79374DB46 
+|  4: 00007FF79374D232 
+|  5: 00007FF79374D060 
+|  6: 00007FF7931D434F 
+|  7: 00007FF79321C4AB 
+|  8: 00007FF7931FC1E5 
+|  9: 00007FF793204DEB 
+| 10: 00007FF7932042EA 
+| 11: 00007FF7931F79E7 
+| 12: 00007FF793214D6F 
+| 13: 00007FF7931FB385 
+| 14: 00007FF793211F62 
+| 15: 00007FF793210683 
+| 16: 00007FF79320B66B 
+| 17: 00007FF79320A83E 
+| 18: 00007FF793204C22 
+| 19: 00007FF7931FA7B5 
+| 20: 00007FF7931F9A50 
+| 21: 00007FF7931F875A 
+| 22: 00007FF7931F13FE 
+| 23: 00007FF7936CA920 
+| 24: 00007FF7936CB41C 
+| 25: 00007FF79314DA4B 
+| 26: 000001A31FE775FA 
+| Warning: Failed to load CA certificates off thread: invalid argument
+| 
+| <--- Last few GCs --->
+| 
+| [27984:00000166073B4000]     1034 ms: Scavenge 21.0 (29.7) -> 19.1 (50.7) MB, pooled: 0 MB, 8.69 / 0.00 ms  (average mu = 1.000, current mu = 1.000) allocation failure; 
+| [27984:00000166073B4000]     1051 ms: Mark-Compact 19.3 (50.9) -> 11.2 (50.7) MB, pooled: 0 MB, 4.02 / 0.00 ms  (+ 0.7 ms in 3 steps since start of marking, biggest step 0.6 ms, walltime since start of marking 17 ms) (average mu = 0.996, current mu = 0.99
+| FATAL ERROR: MarkCompactCollector: young object promotion failed Allocation failed - JavaScript heap out of memory
+| ----- Native stack trace -----
+| 
+|  1: 00007FF792B0403F 
+|  2: 00007FF79374FAA7 
+|  3: 00007FF7935504D7 
+|  4: 00007FF79352FDEE 
+|  5: 00007FF7935254AD 
+|  6: 00007FF79352515C 
+|  7: 00007FF793524DA1 
+|  8: 00007FF793537088 
+|  9: 00007FF793F3040D 
+| 10: 00007FF793F308B2 
+| 11: 00007FF793527DE4 
+| 12: 00007FF79350F50D 
+| 13: 00007FF793509584 
+| 14: 00007FF7935528DA 
+| 15: 00007FF793551F06 
+| 16: 00007FF793562E52 
+| 17: 00007FF79356297B 
+| 18: 00007FF7949EA2AD 
+| 19: 00007FF79354DFA0 
+| 20: 00007FF7935746C6 
+| 21: 00007FF79358EEF6 
+| 22: 00007FF79358ED88 
+| 23: 00007FF793244500 
+| 24: 00007FF79358B1C7 
+| 25: 00007FF793746051 
+| 26: 00007FF793746CFB 
+| 27: 00007FF7931F1E37 
+| 28: 00007FF7931F8786 
+| 29: 00007FF7931F13FE 
+| 30: 00007FF7936CA920 
+| 31: 00007FF7936CB41C 
+| 32: 00007FF79314DA4B 
+| 33: 000001663FA375FA 
+| 
+| <--- Last few GCs --->
+| 
+| [8772:0000017A68DC0000]     1094 ms: Mark-Compact 18.9 (50.2) -> 11.1 (50.7) MB, pooled: 0 MB, 3.62 / 0.00 ms  (+ 0.6 ms in 2 steps since start of marking, biggest step 0.6 ms, walltime since start of marking 41 ms) (average mu = 0.996, current mu = 0.996[8772:0000017A68DC0000]     1695 ms: Scavenge (interleaved) 28.9 (51.4) -> 22.9 (51.4) MB, pooled: 0 MB, 4.17 / 0.01 ms  (average mu = 0.996, current mu = 0.996) allocation failure; 
+| 
+| FATAL ERROR: AlignedAlloc Allocation failed - process out of memory
+| ----- Native stack trace -----
+| 
+| 
+| <--- Last few GCs --->
+| 
+| [29540:000001D69DABE000]     1548 ms: Scavenge (interleaved) 20.2 (35.7) -> 18.8 (35.7) MB, pooled: 14 MB, 3.94 / 0.00 ms  (average mu = 0.991, current mu = 0.991) allocation failure; 
+| 
+| FATAL ERROR: AlignedAlloc Allocation failed - process out of memory
+| ----- Native stack trace -----
+| 
+|  1: 00007FF792B0403F 
+|  2: 00007FF79374FAA7 
+|  3: 00007FF7930CC8CE 
+|  4: 00007FF79324664B 
+|  5: 00007FF79324463C 
+|  6: 00007FF79358B1C7 
+|  7: 00007FF793746051 
+|  8: 00007FF793746CFB 
+|  9: 00007FF7931F640E 
+| 10: 00007FF7931F5B4A 
+|  1: 00007FF792B0403F 
+|  2: 00007FF79374FAA7 
+|  3: 00007FF7930CC8CE 
+|  4: 00007FF79324664B 
+|  5: 00007FF79324463C 
+|  6: 00007FF79358B1C7 
+|  7: 00007FF793746051 
+|  8: 00007FF793746CFB 
+|  9: 00007FF7931F640E 
+| 10: 00007FF7931F5B4A 
+| 11: 00007FF7931F1179 
+| 12: 00007FF7936CD4EF 
+| 13: 00007FF7936D02F1 
+| 14: 00007FF793758F63 
+| 15: 00007FF792B21563 
+| 16: 00007FF792B1FD0E 
+| 17: 000001D6D608F64D 
+Web Bundling failed 36787ms node_modules\expo\AppEntry.js (1 module)
+ ERROR  App.tsx: A jest worker process (pid=29540) was terminated by another process: signal=SIGTERM, exitCode=null. Operating system logs may contain more information on why this occurred.
+Web Bundling failed 38430ms node_modules\expo\AppEntry.js (4 modules)
+ ERROR  App.tsx: A jest worker process (pid=29540) was terminated by another process: signal=SIGTERM, exitCode=null. Operating system logs may contain more information on why this occurred.
+Web Bundling failed 21564ms node_modules\expo\AppEntry.js (854 modules)
+Unable to resolve "expo-font" from "node_modules\@expo\vector-icons\build\createIconSet.js"

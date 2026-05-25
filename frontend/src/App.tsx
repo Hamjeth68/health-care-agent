@@ -5,6 +5,9 @@ import ChatPage from './pages/ChatPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import AboutPage from './pages/AboutPage';
+import MonitorPage from './pages/MonitorPage';
+import ToolsPage from './pages/ToolsPage';
+import ProfilePage from './pages/ProfilePage';
 import Navbar from './components/Navbar';
 import ParticleBackground from './components/ParticleBackground';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -27,6 +30,9 @@ export default function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/monitor" element={<MonitorPage />} />
+            <Route path="/tools" element={<ToolsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="*" element={<HomePage />} />

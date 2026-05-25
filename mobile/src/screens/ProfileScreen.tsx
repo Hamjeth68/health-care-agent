@@ -10,6 +10,7 @@ import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import { updateProfile } from "../services/api";
 import { colors, spacing } from "../theme";
+import { getErrorMessage } from "../utils/errors";
 
 export function ProfileScreen() {
   const { logout, profile, refreshProfile, user } = useAuth();
@@ -24,8 +25,8 @@ export function ProfileScreen() {
       await updateProfile(user.id, name.trim(), phone.trim());
       await refreshProfile();
       Alert.alert("Profile updated", "Your care profile has been synced.");
-    } catch (error: any) {
-      Alert.alert("Unable to save", error?.message || "Check the backend connection.");
+    } catch (error: unknown) {
+      Alert.alert("Unable to save", getErrorMessage(error, "Check the backend connection."));
     } finally {
       setSaving(false);
     }
@@ -87,5 +88,5 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 13,
     lineHeight: 19
-  },
+  }
 });

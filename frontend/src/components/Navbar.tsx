@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { House, MessageSquare, LogIn, UserPlus, LogOut, Menu, X, Sun, Moon, Info } from 'lucide-react';
+import { House, MessageSquare, LogIn, UserPlus, LogOut, Menu, X, Sun, Moon, Info, Activity, Wrench, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,9 @@ import { useAuth } from '../context/AuthContext';
 const loggedInLinks = [
   { to: '/', label: 'Home', icon: House },
   { to: '/chat', label: 'Chat', icon: MessageSquare },
+  { to: '/monitor', label: 'Monitor', icon: Activity },
+  { to: '/tools', label: 'Tools', icon: Wrench },
+  { to: '/profile', label: 'Profile', icon: UserRound },
   { to: '/about', label: 'About', icon: Info },
 ];
 

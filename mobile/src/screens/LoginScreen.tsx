@@ -10,6 +10,7 @@ import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
 import type { AuthStackParamList } from "../navigation/types";
 import { colors, spacing } from "../theme";
+import { getErrorMessage } from "../utils/errors";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
@@ -28,8 +29,8 @@ export function LoginScreen({ navigation }: Props) {
     clearAuthError();
     try {
       await login(email, password);
-    } catch (error: any) {
-      Alert.alert("Login failed", error?.message || "Please check your credentials.");
+    } catch (error: unknown) {
+      Alert.alert("Login failed", getErrorMessage(error, "Please check your credentials."));
     } finally {
       setLoading(false);
     }

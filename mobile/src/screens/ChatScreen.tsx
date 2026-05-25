@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import { askHealthcareAgent } from "../services/api";
 import { colors, spacing } from "../theme";
 import type { ChatMessage } from "../types";
+import { getErrorMessage } from "../utils/errors";
 
 const suggestions = [
   "bp 160",
@@ -62,8 +63,8 @@ export function ChatScreen() {
           }
         ]);
         requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-      } catch (error: any) {
-        Alert.alert("Agent unavailable", error?.message || "Start the backend and try again.");
+      } catch (error: unknown) {
+        Alert.alert("Agent unavailable", getErrorMessage(error, "Start the backend and try again."));
       } finally {
         setLoading(false);
       }

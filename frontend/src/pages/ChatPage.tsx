@@ -5,9 +5,7 @@ import ChatMessage from '../components/ChatMessage';
 import ChatSidebar from '../components/ChatSidebar';
 import TypingIndicator from '../components/TypingIndicator';
 import { useAuth } from '../context/AuthContext';
-import supabase from '../supabase';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { askHealthcareAgent, clearChatHistory, getChatHistory } from '../services/api';
 
 const SUGGESTIONS = [
   'symptoms of gestational cholestasis',
@@ -23,12 +21,6 @@ interface Msg {
   bot: string;
   role: string;
   createdAt: string;
-}
-
-interface ChatHistoryRow {
-  query: string;
-  response: string;
-  created_at: string | null;
 }
 
 export default function ChatPage() {
@@ -55,49 +47,26 @@ export default function ChatPage() {
     return () => window.clearTimeout(timer);
   }, [toastMessage]);
 
-  const loadHistory = useCallback(async (currentSession: any) => {
-    if (!currentSession) {
+  const loadHistory = useCallback(async (currentUserId: string | undefined) => {
+    if (!currentUserId) {
       setHistoryLoading(false);
       return;
     }
 
-    console.log("Fetching chats...");
     setHistoryLoading(true);
     setChatError('');
 
     try {
-      const { data, error } = await supabase
-        .from('chat_history')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      console.log("Chats:", data);
-      console.log("Error:", error);
-
-      if (error) {
-        if (error.code === 'PGRST116' || error.code === '42501') {
-          const msg = 'Unable to load history due to missing permissions. Check chat_history RLS policies.';
-          setChatError(msg);
-          setToastMessage(msg);
-        } else {
-          const msg = `Unable to load history: ${error.message}`;
-          setChatError(msg);
-          setToastMessage(msg);
-        }
-        setHistoryLoading(false);
-        return;
-      }
-
-      const rows = (data as ChatHistoryRow[] | null) ?? [];
+      const { data } = await getChatHistory(currentUserId);
+      const rows = data ?? [];
       setMessages(rows.map((row) => ({
         user: row.query,
         bot: row.response,
-        role: 'user',
+        role: row.role || 'user',
         createdAt: row.created_at ?? '',
       })));
     } catch (err: any) {
-      console.error("Raw error loading history:", err);
-      const msg = `Exception loading history: ${err.message || 'Unknown error'}`;
+      const msg = `Unable to load history: ${err.message || 'Unknown error'}`;
       setChatError(msg);
       setToastMessage(msg);
     } finally {
@@ -108,7 +77,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (user && !hasFetched.current) {
       hasFetched.current = true;
-      loadHistory(user);
+      loadHistory(user.id);
     }
   }, [user, loadHistory]);
 
@@ -127,17 +96,7 @@ export default function ChatPage() {
     setQuery('');
 
     try {
-      const res = await fetch(`${API_URL}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, role, user_id: user?.id }),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = await askHealthcareAgent(q, role, user?.id);
       const rawResponse = data?.response;
       if (typeof rawResponse !== 'string' || !rawResponse.trim()) {
         throw new Error('Fetch failed: server returned no response.');
@@ -176,7 +135,7 @@ export default function ChatPage() {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [query, role]);
+  }, [query, role, user?.id]);
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -191,17 +150,16 @@ export default function ChatPage() {
     setMessages([]);
     setChatError('');
 
-    const { error } = await supabase
-      .from('chat_history')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all user's chats (RLS protects others)
+    if (!user?.id) return;
 
-    if (error) {
-      const msg = `Unable to clear history: ${error.message}`;
+    try {
+      await clearChatHistory(user.id);
+    } catch (error: any) {
+      const msg = `Unable to clear history: ${error.message || 'Unknown error'}`;
       setChatError(msg);
       setToastMessage(msg);
     }
-  }, []);
+  }, [user?.id]);
 
   return (
     <motion.div

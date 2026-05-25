@@ -9,7 +9,8 @@ from supabase import create_client, Client
 from utils.download import download_file
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -18,7 +19,6 @@ supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
 	supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FAISS_PATH = os.path.join(BASE_DIR, "medical_vector_db.faiss")
 DATA_PATH = os.path.join(BASE_DIR, "medical_rag_dataset.json")
 
