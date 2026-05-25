@@ -55,3 +55,16 @@ variable "frontend_origin" {
   type        = string
   default     = "https://hamjeth68.github.io"
 }
+
+variable "aws_profile" {
+  description = "Optional AWS CLI profile name to use for credentials. If empty, default credential chain is used."
+  type        = string
+  default     = ""
+}
+
+variable "assume_role_arn" {
+  description = "Optional IAM role ARN to assume for Terraform operations."
+  type        = string
+  default     = ""
+}
+

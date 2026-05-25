@@ -1,5 +1,6 @@
 locals {
-  name = "${var.project_name}-${var.environment}"
+  name        = "${var.project_name}-${var.environment}"
+  ssh_is_ipv6 = strcontains(var.ssh_allowed_cidr, ":")
 
   tags = {
     Project     = var.project_name
@@ -47,11 +48,12 @@ resource "aws_security_group" "backend" {
   description = "Backend ingress for SSH and CloudFront HTTP origin"
 
   ingress {
-    description = "SSH from operator IP"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.ssh_allowed_cidr]
+    description      = "SSH from operator IP"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = local.ssh_is_ipv6 ? [] : [var.ssh_allowed_cidr]
+    ipv6_cidr_blocks = local.ssh_is_ipv6 ? [var.ssh_allowed_cidr] : []
   }
 
   ingress {
@@ -63,11 +65,12 @@ resource "aws_security_group" "backend" {
   }
 
   egress {
-    description = "Outbound internet access"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description      = "Outbound internet access"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = local.tags
