@@ -24,14 +24,6 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-data "aws_cloudfront_cache_policy" "caching_disabled" {
-  name = "Managed-CachingDisabled"
-}
-
-data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
-  name = "Managed-AllViewerExceptHostHeader"
-}
-
 resource "random_password" "origin_secret" {
   length  = 40
   special = false
@@ -107,50 +99,63 @@ resource "aws_eip" "backend" {
   tags     = local.tags
 }
 
-resource "aws_cloudfront_distribution" "api" {
-  enabled         = true
-  comment         = "${local.name} FastAPI HTTPS frontend"
-  price_class     = "PriceClass_100"
-  http_version    = "http2"
-  is_ipv6_enabled = true
+resource "aws_apigatewayv2_api" "api" {
+  name          = "${local.name}-http-api"
+  protocol_type = "HTTP"
 
-  origin {
-    domain_name = aws_eip.backend.public_dns
-    origin_id   = "ec2-fastapi-origin"
-
-    custom_header {
-      name  = "X-Origin-Secret"
-      value = random_password.origin_secret.result
-    }
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
+  cors_configuration {
+    allow_credentials = true
+    allow_headers     = ["authorization", "content-type"]
+    allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_origins     = [var.frontend_origin]
+    max_age           = 3600
   }
 
-  default_cache_behavior {
-    target_origin_id       = "ec2-fastapi-origin"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods         = ["GET", "HEAD", "OPTIONS"]
-    compress               = true
+  tags = local.tags
+}
 
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
-  }
+resource "aws_apigatewayv2_integration" "root" {
+  api_id                 = aws_apigatewayv2_api.api.id
+  integration_type       = "HTTP_PROXY"
+  integration_method     = "ANY"
+  integration_uri        = "http://${aws_eip.backend.public_dns}"
+  payload_format_version = "1.0"
+  timeout_milliseconds   = 30000
 
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
+  request_parameters = {
+    "append:header.X-Origin-Secret" = random_password.origin_secret.result
   }
+}
 
-  viewer_certificate {
-    cloudfront_default_certificate = true
+resource "aws_apigatewayv2_integration" "proxy" {
+  api_id                 = aws_apigatewayv2_api.api.id
+  integration_type       = "HTTP_PROXY"
+  integration_method     = "ANY"
+  integration_uri        = "http://${aws_eip.backend.public_dns}/{proxy}"
+  payload_format_version = "1.0"
+  timeout_milliseconds   = 30000
+
+  request_parameters = {
+    "append:header.X-Origin-Secret" = random_password.origin_secret.result
   }
+}
+
+resource "aws_apigatewayv2_route" "root" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "ANY /"
+  target    = "integrations/${aws_apigatewayv2_integration.root.id}"
+}
+
+resource "aws_apigatewayv2_route" "proxy" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "ANY /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.proxy.id}"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.api.id
+  name        = "$default"
+  auto_deploy = true
 
   tags = local.tags
 }

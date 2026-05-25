@@ -8,9 +8,9 @@ output "backend_public_dns" {
   value       = aws_eip.backend.public_dns
 }
 
-output "cloudfront_api_url" {
+output "api_url" {
   description = "HTTPS API URL to use as the frontend VITE_API_URL GitHub secret."
-  value       = "https://${aws_cloudfront_distribution.api.domain_name}"
+  value       = aws_apigatewayv2_api.api.api_endpoint
 }
 
 output "ssh_command" {

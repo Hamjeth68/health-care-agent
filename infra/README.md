@@ -1,6 +1,6 @@
 # Production Deployment
 
-This folder contains the production launch scaffold for the web app on GitHub Pages and the FastAPI backend on AWS EC2 behind CloudFront.
+This folder contains the production launch scaffold for the web app on GitHub Pages and the FastAPI backend on AWS EC2 behind an API Gateway HTTPS endpoint.
 
 ## Security First
 
@@ -13,7 +13,7 @@ This folder contains the production launch scaffold for the web app on GitHub Pa
 
 Create these repository secrets in GitHub:
 
-- `VITE_API_URL`: the `cloudfront_api_url` Terraform output
+- `VITE_API_URL`: the `api_url` Terraform output
 - `VITE_SUPABASE_URL`: Supabase project URL
 - `VITE_SUPABASE_ANON_KEY`: Supabase anon/public key
 
@@ -55,7 +55,7 @@ terraform plan
 terraform apply
 ```
 
-After apply, copy `cloudfront_api_url` into the GitHub `VITE_API_URL` secret.
+After apply, copy `api_url` into the GitHub `VITE_API_URL` secret.
 
 ## 3. Backend Secrets on EC2
 
@@ -82,20 +82,20 @@ sudo systemctl status health-care-agent --no-pager
 
 ## 4. Smoke Checks
 
-Use the CloudFront URL, not the raw EC2 URL:
+Use the API Gateway URL, not the raw EC2 URL:
 
 ```bash
-curl https://your-cloudfront-domain.cloudfront.net/health
-curl -X POST https://your-cloudfront-domain.cloudfront.net/monitoring/summary \
+curl https://your-api-id.execute-api.us-east-1.amazonaws.com/health
+curl -X POST https://your-api-id.execute-api.us-east-1.amazonaws.com/monitoring/summary \
   -H "Content-Type: application/json" \
   -d '{"systolic_bp":128,"diastolic_bp":82,"heart_rate":78}'
 ```
 
-Direct EC2 HTTP without the CloudFront origin secret should return `403`.
+Direct EC2 HTTP without the API Gateway origin secret should return `403`.
 
 ## Cost Notes
 
 - Default EC2 size is `t3.micro`.
 - Use `t3.small` only if your AWS console marks it free-tier eligible for your account.
-- CloudFront is used to provide HTTPS for the GitHub Pages web app.
+- API Gateway is used to provide HTTPS for the GitHub Pages web app.
 - Bedrock is intentionally not enabled for v1 to avoid token costs.
