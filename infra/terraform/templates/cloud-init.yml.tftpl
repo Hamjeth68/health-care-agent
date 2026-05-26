@@ -72,7 +72,7 @@ runcmd:
   - chown -R ubuntu:ubuntu ${project_directory}
   - python3 -m venv ${project_directory}/.venv
   - ${project_directory}/.venv/bin/python -m pip install --upgrade pip wheel
-  - ${project_directory}/.venv/bin/pip install -r ${project_directory}/backend/requirements.txt
+  - ${project_directory}/.venv/bin/pip install -r ${project_directory}/backend/requirements-prod.txt
   - |
     cat > ${project_directory}/backend/.env <<'EOF'
     # Fill these on EC2 after Terraform apply. Do not commit real values.

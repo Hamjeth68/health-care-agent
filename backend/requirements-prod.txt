@@ -1,0 +1,7 @@
+# Lean production runtime for the FastAPI service.
+# Heavy RAG/ML packages stay in requirements.txt and are loaded only when needed.
+fastapi==0.135.1
+uvicorn==0.41.0
+supabase>=2.3.4
+python-dotenv>=1.0.0
+requests==2.32.5
