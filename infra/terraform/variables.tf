@@ -47,7 +47,7 @@ variable "repo_url" {
 variable "repo_branch" {
   description = "Git branch deployed onto EC2."
   type        = string
-  default     = "main"
+  default     = "Master"
 }
 
 variable "frontend_origin" {
