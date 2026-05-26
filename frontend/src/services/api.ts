@@ -1,6 +1,11 @@
 import supabase from '../supabase';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const defaultApiUrl =
+  window.location.hostname === 'hamjeth68.github.io'
+    ? 'https://g4oilbf1u0.execute-api.us-east-1.amazonaws.com'
+    : 'http://127.0.0.1:8000';
+
+export const API_URL = import.meta.env.VITE_API_URL || defaultApiUrl;
 
 export interface Profile {
   id: string;
