@@ -63,9 +63,11 @@ def startup_event():
 	download_file(FAISS_URL, FAISS_PATH)
 	download_file(DATA_URL, DATA_PATH)
 	
-	# 2. Trigger background warmup of heavy models
-	from retrieval.hybrid_retriever import warmup_models
-	threading.Thread(target=warmup_models, daemon=True).start()
+	# 2. Heavy model warmup is optional. On small EC2 instances, eager warmup can
+	# consume enough memory to prevent the API process from staying online.
+	if os.getenv("ENABLE_MODEL_WARMUP", "").strip().lower() in {"1", "true", "yes"}:
+		from retrieval.hybrid_retriever import warmup_models
+		threading.Thread(target=warmup_models, daemon=True).start()
 
 def _get_allowed_origins() -> list[str]:
 	configured = os.getenv("CORS_ALLOW_ORIGINS", "")

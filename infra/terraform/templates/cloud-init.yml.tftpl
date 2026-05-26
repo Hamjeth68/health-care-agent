@@ -79,6 +79,7 @@ runcmd:
     SUPABASE_URL=
     SUPABASE_SERVICE_ROLE_KEY=
     CORS_ALLOW_ORIGINS=${frontend_origin}
+    ENABLE_MODEL_WARMUP=false
     EOF
   - chown ubuntu:ubuntu ${project_directory}/backend/.env
   - chmod 600 ${project_directory}/backend/.env

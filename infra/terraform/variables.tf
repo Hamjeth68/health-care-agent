@@ -41,7 +41,7 @@ variable "public_key_path" {
 variable "repo_url" {
   description = "Git repository URL cloned onto EC2."
   type        = string
-  default     = "https://github.com/Hamjeth68/health-care-agent-.git"
+  default     = "https://github.com/Hamjeth68/health-care-agent.git"
 }
 
 variable "repo_branch" {
@@ -67,4 +67,3 @@ variable "assume_role_arn" {
   type        = string
   default     = ""
 }
-
