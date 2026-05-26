@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import supabase from '../supabase';
+import supabase, { missingSupabaseMessage } from '../supabase';
 import { getProfile, syncAuthenticatedProfile, updateProfile } from '../services/api';
 
 export interface Profile {
@@ -73,6 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initialize = async () => {
       setLoading(true);
+      if (!supabase) {
+        setAuthError(missingSupabaseMessage);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.getSession();
 
       if (!mounted) {
@@ -107,6 +113,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initialize();
+
+    if (!supabase) {
+      return () => {
+        mounted = false;
+      };
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!mounted) {
@@ -180,6 +192,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setAuthError('');
+    if (!supabase) {
+      throw new Error(missingSupabaseMessage);
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -202,6 +217,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(async ({ name, phone, email, password }: SignupPayload) => {
     setAuthError('');
+    if (!supabase) {
+      throw new Error(missingSupabaseMessage);
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -256,6 +274,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     setAuthError('');
+    if (!supabase) {
+      throw new Error(missingSupabaseMessage);
+    }
+
     manualSignOutRef.current = true;
     const { error } = await supabase.auth.signOut();
     if (error) {

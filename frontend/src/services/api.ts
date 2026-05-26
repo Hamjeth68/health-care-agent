@@ -46,7 +46,7 @@ type RequestOptions = Omit<RequestInit, 'headers'> & {
 };
 
 async function getAuthHeaders(enabled: boolean): Promise<Record<string, string>> {
-  if (!enabled) return {};
+  if (!enabled || !supabase) return {};
 
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
