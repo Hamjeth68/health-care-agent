@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import os
 import threading
 import asyncio
+import jwt
+from jwt import PyJWKClient
 from supabase import create_client, Client
 from utils.download import download_file
 from dotenv import load_dotenv
@@ -14,10 +16,21 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+CLERK_JWT_KEY = os.getenv("CLERK_JWT_KEY", "").replace("\\n", "\n").strip()
+CLERK_ISSUER = os.getenv("CLERK_ISSUER", "").rstrip("/")
+CLERK_AUTHORIZED_PARTIES = {
+	origin.strip().rstrip("/")
+	for origin in os.getenv("CLERK_AUTHORIZED_PARTIES", "").split(",")
+	if origin.strip()
+}
 
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
 	supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+clerk_jwks_client: PyJWKClient | None = None
+if not CLERK_JWT_KEY and CLERK_ISSUER:
+	clerk_jwks_client = PyJWKClient(f"{CLERK_ISSUER}/.well-known/jwks.json")
 
 FAISS_PATH = os.path.join(BASE_DIR, "medical_vector_db.faiss")
 DATA_PATH = os.path.join(BASE_DIR, "medical_rag_dataset.json")
@@ -160,28 +173,69 @@ def _extract_bearer_token(authorization: str | None) -> str:
 	return token
 
 
-def get_current_user(authorization: str | None = Header(default=None)) -> dict:
-	client = _require_supabase()
-	token = _extract_bearer_token(authorization)
+def _get_clerk_signing_key(token: str):
+	if CLERK_JWT_KEY:
+		return CLERK_JWT_KEY
 
+	if clerk_jwks_client:
+		return clerk_jwks_client.get_signing_key_from_jwt(token).key
+
+	raise HTTPException(
+		status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+		detail="Clerk JWT verification is not configured on the backend.",
+	)
+
+
+def _verify_clerk_token(token: str) -> dict:
 	try:
-		auth_user = client.auth.get_user(token).user
+		signing_key = _get_clerk_signing_key(token)
+		claims = jwt.decode(
+			token,
+			signing_key,
+			algorithms=["RS256"],
+			issuer=CLERK_ISSUER or None,
+			options={
+				"require": ["exp", "iat", "sub"],
+				"verify_aud": False,
+			},
+			leeway=60,
+		)
+	except HTTPException:
+		raise
 	except Exception as exc:
 		raise HTTPException(
 			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Invalid or expired Supabase session.",
+			detail="Invalid or expired Clerk session.",
 		) from exc
 
-	if not auth_user:
+	if not claims.get("sub"):
 		raise HTTPException(
 			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Invalid or expired Supabase session.",
+			detail="Clerk session is missing a subject.",
 		)
 
+	if CLERK_AUTHORIZED_PARTIES:
+		authorized_party = str(claims.get("azp", "")).rstrip("/")
+		if authorized_party not in CLERK_AUTHORIZED_PARTIES:
+			raise HTTPException(
+				status_code=status.HTTP_401_UNAUTHORIZED,
+				detail="Clerk session was issued for an unauthorized frontend.",
+			)
+
+	return claims
+
+
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
+	token = _extract_bearer_token(authorization)
+	claims = _verify_clerk_token(token)
+
 	return {
-		"id": auth_user.id,
-		"email": auth_user.email,
-		"metadata": auth_user.user_metadata or {},
+		"id": claims["sub"],
+		"email": claims.get("email") or claims.get("email_address"),
+		"metadata": {
+			"name": claims.get("name") or claims.get("full_name"),
+			"phone": claims.get("phone_number"),
+		},
 	}
 
 

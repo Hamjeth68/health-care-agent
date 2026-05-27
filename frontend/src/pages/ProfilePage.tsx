@@ -13,9 +13,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setName(profile?.name ?? user?.user_metadata?.name ?? '');
-    setPhone(profile?.phone ?? user?.user_metadata?.phone ?? '');
-  }, [profile, user?.user_metadata]);
+    setName(profile?.name ?? user?.fullName ?? '');
+    setPhone(profile?.phone ?? user?.phone ?? '');
+  }, [profile, user?.fullName, user?.phone]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
