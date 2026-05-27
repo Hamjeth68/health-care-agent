@@ -73,13 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const synced = await syncAuthenticatedProfile(user?.fullName ?? undefined, user?.phone ?? undefined);
       setProfile(synced.profile);
-    } catch (error: any) {
+    } catch {
       try {
         const synced = await syncAuthenticatedProfile(user?.fullName ?? undefined, user?.phone ?? undefined);
         setProfile(synced.profile);
-      } catch (syncError: any) {
+      } catch {
         setProfile(null);
-        setAuthError(syncError.message || error.message || 'Unable to load profile.');
       }
     }
   }, [isSignedIn, user?.fullName, user?.id, user?.phone]);

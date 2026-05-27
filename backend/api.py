@@ -26,7 +26,7 @@ CLERK_AUTHORIZED_PARTIES = {
 
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
-	supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+	supabase = create_client(SUPABASE_URL.rstrip("/").removesuffix("/rest/v1"), SUPABASE_KEY)
 
 clerk_jwks_client: PyJWKClient | None = None
 if not CLERK_JWT_KEY and CLERK_ISSUER:
@@ -349,7 +349,8 @@ async def ask(req: QueryRequest, current_user: dict = Depends(get_current_user))
 				supabase.table("chat_history").insert({
 					"user_id": user_id,
 					"query": req.query,
-					"response": response
+					"response": response,
+					"role": req.role,
 				}).execute()
 				print("Chat saved to Supabase")
 			except Exception as e:

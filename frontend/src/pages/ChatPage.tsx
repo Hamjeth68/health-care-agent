@@ -66,6 +66,11 @@ export default function ChatPage() {
         createdAt: row.created_at ?? '',
       })));
     } catch (err: any) {
+      if (String(err?.message || '').toLowerCase().includes('supabase is not configured')) {
+        setMessages([]);
+        return;
+      }
+
       const msg = `Unable to load history: ${err.message || 'Unknown error'}`;
       setChatError(msg);
       setToastMessage(msg);
