@@ -1,5 +1,3 @@
-import supabase from '../supabase';
-
 const defaultApiUrl =
   window.location.hostname === 'hamjeth68.github.io'
     ? 'https://g4oilbf1u0.execute-api.us-east-1.amazonaws.com'
@@ -45,11 +43,18 @@ type RequestOptions = Omit<RequestInit, 'headers'> & {
   timeoutMs?: number;
 };
 
-async function getAuthHeaders(enabled: boolean): Promise<Record<string, string>> {
-  if (!enabled || !supabase) return {};
+type AuthTokenProvider = () => Promise<string | null>;
 
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+let authTokenProvider: AuthTokenProvider | null = null;
+
+export function setAuthTokenProvider(provider: AuthTokenProvider | null) {
+  authTokenProvider = provider;
+}
+
+async function getAuthHeaders(enabled: boolean): Promise<Record<string, string>> {
+  if (!enabled || !authTokenProvider) return {};
+
+  const token = await authTokenProvider();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
