@@ -46,8 +46,18 @@ predict_health_risk = None
 def load_medical_agent():
 	global medical_agent
 	if medical_agent is None:
-		from agent.medical_agent import medical_agent as ma
-		medical_agent = ma
+		try:
+			from agent.medical_agent import medical_agent as ma
+			medical_agent = ma
+		except ImportError as exc:
+			raise HTTPException(
+				status_code=503,
+				detail=(
+					"AI assistant is unavailable on this instance — "
+					"sentence-transformers / torch are not installed. "
+					f"({exc})"
+				),
+			)
 	return medical_agent
 
 

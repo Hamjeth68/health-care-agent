@@ -1,14 +1,14 @@
 import json
 import time
 from pathlib import Path
-import faiss
-import numpy as np
 import re
 
-# We will lazy-load sentence_transformers to speed up import and fast-boot
-# from sentence_transformers import SentenceTransformer
-# from sentence_transformers import CrossEncoder
-from rank_bm25 import BM25Okapi
+# Heavy retrieval deps are lazy-loaded so the module can be imported on lean
+# EC2 instances (requirements-prod.txt) without crashing at startup. They are
+# only materialised when get_data_and_indices() or search_hybrid() is first
+# called (i.e. on the first /ask request).
+# sentence_transformers is also lazy-loaded (see get_embedding_model /
+# get_reranker below).
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 INDEX_PATH = BASE_DIR / "medical_vector_db.faiss"
@@ -41,6 +41,8 @@ def get_reranker():
 def get_data_and_indices():
 	global _index, _data, _entity_index, _bm25, _corpus
 	if _index is None:
+		import faiss
+		from rank_bm25 import BM25Okapi
 		print("Loading core FAISS index and dataset...")
 		_index = faiss.read_index(str(INDEX_PATH))
 
