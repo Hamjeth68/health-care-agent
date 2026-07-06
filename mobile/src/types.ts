@@ -14,6 +14,14 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface ChatHistoryItem {
+  id?: string;
+  query: string;
+  response: string;
+  role?: string | null;
+  created_at: string | null;
+}
+
 export interface MonitoringPayload {
   age?: number;
   systolic_bp: number;

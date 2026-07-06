@@ -1,6 +1,6 @@
 import { API_URL } from "../config";
 import { supabase } from "./supabase";
-import type { MonitoringPayload, MonitoringSummary, Profile } from "../types";
+import type { ChatHistoryItem, MonitoringPayload, MonitoringSummary, Profile } from "../types";
 
 type RequestOptions = Omit<RequestInit, "headers"> & {
   auth?: boolean;
@@ -50,6 +50,16 @@ export function askHealthcareAgent(query: string, role: string, userId?: string)
     method: "POST",
     timeoutMs: 45000,
     body: JSON.stringify({ query, role, user_id: userId })
+  });
+}
+
+export function getChatHistory(userId: string) {
+  return request<{ data: ChatHistoryItem[] }>(`/history?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function clearChatHistory(userId: string) {
+  return request<{ status: string }>(`/clear?user_id=${encodeURIComponent(userId)}`, {
+    method: "DELETE"
   });
 }
 

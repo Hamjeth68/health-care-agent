@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { AppHeader } from "../components/AppHeader";
 import { AppButton } from "../components/AppButton";
@@ -7,7 +7,7 @@ import { InfoBanner } from "../components/InfoBanner";
 import { Screen } from "../components/Screen";
 import { TextField } from "../components/TextField";
 import { useAuth } from "../context/AuthContext";
-import { askHealthcareAgent } from "../services/api";
+import { askHealthcareAgent, clearChatHistory, getChatHistory } from "../services/api";
 import { colors, spacing } from "../theme";
 import type { ChatMessage } from "../types";
 import { getErrorMessage } from "../utils/errors";
@@ -38,11 +38,48 @@ export function ChatScreen() {
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("user");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const hasFetched = useRef(false);
 
   const canSend = query.trim().length > 0 && !loading;
   const data = useMemo(() => messages, [messages]);
+
+  useEffect(() => {
+    if (!user?.id || hasFetched.current) return;
+    hasFetched.current = true;
+
+    setHistoryLoading(true);
+    getChatHistory(user.id)
+      .then(({ data: rows }) => {
+        setMessages(
+          (rows ?? []).map((row) => ({
+            id: `${row.created_at ?? Date.now()}-${row.query}`,
+            user: row.query,
+            bot: row.response,
+            role: row.role || "user",
+            createdAt: row.created_at ?? new Date().toISOString()
+          }))
+        );
+      })
+      .catch((error: unknown) => {
+        if (!getErrorMessage(error, "").toLowerCase().includes("supabase is not configured")) {
+          Alert.alert("Couldn't load history", getErrorMessage(error, "Please try again."));
+        }
+      })
+      .finally(() => setHistoryLoading(false));
+  }, [user?.id]);
+
+  const clearChat = useCallback(async () => {
+    setMessages([]);
+    if (!user?.id) return;
+    try {
+      await clearChatHistory(user.id);
+    } catch (error: unknown) {
+      Alert.alert("Couldn't clear history", getErrorMessage(error, "Please try again."));
+    }
+  }, [user?.id]);
 
   const send = useCallback(
     async (preset?: string) => {
@@ -88,14 +125,26 @@ export function ChatScreen() {
           tone="warning"
         />
         <View style={styles.roleRow}>
-          {["user", "patient", "caregiver"].map((nextRole) => (
-            <Pressable key={nextRole} onPress={() => setRole(nextRole)} style={[styles.role, role === nextRole && styles.roleActive]}>
-              <Text style={[styles.roleText, role === nextRole && styles.roleTextActive]}>{nextRole}</Text>
-            </Pressable>
-          ))}
+          <View style={styles.roleGroup}>
+            {["user", "patient", "caregiver"].map((nextRole) => (
+              <Pressable key={nextRole} onPress={() => setRole(nextRole)} style={[styles.role, role === nextRole && styles.roleActive]}>
+                <Text style={[styles.roleText, role === nextRole && styles.roleTextActive]}>{nextRole}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable disabled={messages.length === 0} onPress={clearChat} style={styles.clearButton}>
+            <Text style={styles.clearButtonText}>Clear</Text>
+          </Pressable>
         </View>
 
-        {messages.length === 0 ? (
+        {historyLoading ? (
+          <View style={styles.typing}>
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.typingText}>Loading history...</Text>
+          </View>
+        ) : null}
+
+        {!historyLoading && messages.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons color={colors.primary} name="chatbubble-ellipses-outline" size={36} />
             <Text style={styles.emptyTitle}>Choose a safe starting point</Text>
@@ -152,8 +201,22 @@ const styles = StyleSheet.create({
     gap: spacing.md
   },
   roleRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between"
+  },
+  roleGroup: {
     flexDirection: "row",
     gap: 8
+  },
+  clearButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  clearButtonText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700"
   },
   role: {
     backgroundColor: colors.surface,

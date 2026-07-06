@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Mic, Loader2 } from 'lucide-react';
+import { Send, Mic, MicOff, Loader2 } from 'lucide-react';
 import ChatMessage from '../components/ChatMessage';
 import ChatSidebar from '../components/ChatSidebar';
 import TypingIndicator from '../components/TypingIndicator';
@@ -36,6 +36,50 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasFetched = useRef(false);
   const isSendingRef = useRef(false);
+  const recognitionRef = useRef<any>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
+  useEffect(() => {
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+
+    const recognition = new SpeechRecognitionCtor();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results as any)
+        .map((result: any) => result[0].transcript)
+        .join(' ');
+      setQuery((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    setVoiceSupported(true);
+
+    return () => {
+      recognition.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  const toggleVoiceInput = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      setIsListening(true);
+      recognition.start();
+    }
+  }, [isListening]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -281,10 +325,21 @@ export default function ChatPage() {
                 autoFocus
               />
               <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors"
-                title="Voice input (coming soon)"
+                type="button"
+                onClick={toggleVoiceInput}
+                disabled={!voiceSupported}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                  isListening ? 'text-danger animate-pulse' : 'text-muted-foreground hover:text-primary'
+                }`}
+                title={
+                  voiceSupported
+                    ? isListening
+                      ? 'Stop voice input'
+                      : 'Voice input'
+                    : 'Voice input is not supported in this browser'
+                }
               >
-                <Mic size={16} />
+                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
               </button>
             </div>
             <motion.button
