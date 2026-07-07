@@ -7,20 +7,57 @@ jobs:
   configure:
     runs-on: ubuntu-latest
     steps:
-      - name: Write .env and restart service on EC2
-        uses: appleboy/ssh-action@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ec2-52-70-190-14.compute-1.amazonaws.com
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          # No host_key provided — appleboy/ssh-action uses InsecureIgnoreHostKey()
-          # by default, equivalent to StrictHostKeyChecking=no
-          script: |
-            sudo tee /opt/health-care-agent/backend/.env > /dev/null << 'EOF'
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-            CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS }}
-            ENABLE_MODEL_WARMUP=false
-            EOF
-            sudo systemctl restart health-care-agent
-            sudo systemctl status health-care-agent --no-pager
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Write .env and restart service via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "i-0577b1307ea0027e7" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "sudo tee /opt/health-care-agent/backend/.env > /dev/null <<'\''ENVEOF'\''",
+              "SUPABASE_URL=${{ secrets.SUPABASE_URL }}",
+              "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+              "CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS }}",
+              "ENABLE_MODEL_WARMUP=false",
+              "ENVEOF",
+              "sudo systemctl restart health-care-agent",
+              "sleep 3",
+              "sudo systemctl status health-care-agent --no-pager"
+            ]' \
+            --output text \
+            --query "Command.CommandId")
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Poll until the command finishes (max 120 seconds)
+          for i in $(seq 1 24); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "i-0577b1307ea0027e7" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            echo "[$i] Status: $STATUS"
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "TimedOut" || "$STATUS" == "Cancelled" ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+          # Print output
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0577b1307ea0027e7" \
+            --query "[StandardOutputContent, StandardErrorContent]" \
+            --output text
+
+          # Fail the job if the command did not succeed
+          if [[ "$STATUS" != "Success" ]]; then
+            echo "SSM command failed with status: $STATUS"
+            exit 1
+          fi
