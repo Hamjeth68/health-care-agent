@@ -85,7 +85,7 @@ export default function HomePage() {
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
               className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-primary to-secondary p-1 shadow-2xl shadow-primary/25"
             >
-              <img src="/medical-logo.png" alt="Healthcare monitoring agent logo" className="w-full h-full rounded-[20px] object-cover" />
+              <img src={`${import.meta.env.BASE_URL}medical-logo.png`} alt="Healthcare monitoring agent logo" className="w-full h-full rounded-[20px] object-cover" />
             </motion.div>
           </motion.div>
 
