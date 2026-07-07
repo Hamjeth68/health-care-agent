@@ -228,7 +228,7 @@ export default function ChatPage() {
         <div className="px-6 py-4 border-b border-border flex items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <img src="/medical-logo.png" alt="Healthcare monitoring agent logo" className="w-6 h-6 rounded-md object-cover border border-border" />
+              <img src={`${import.meta.env.BASE_URL}medical-logo.png`} alt="Healthcare monitoring agent logo" className="w-6 h-6 rounded-md object-cover border border-border" />
               <h2 className="text-foreground font-bold text-base">Healthcare Monitoring Chat</h2>
             </div>
             <p className="text-muted-foreground text-xs mt-0.5">Hybrid RAG | Multi-Agent | Health Tools</p>
@@ -274,7 +274,7 @@ export default function ChatPage() {
                 transition={{ duration: 4, repeat: Infinity }}
                 className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary p-1 mb-6 shadow-xl shadow-primary/20"
               >
-                <img src="/medical-logo.png" alt="Healthcare monitoring agent logo" className="w-full h-full rounded-xl object-cover" />
+                <img src={`${import.meta.env.BASE_URL}medical-logo.png`} alt="Healthcare monitoring agent logo" className="w-full h-full rounded-xl object-cover" />
               </motion.div>
               <h3 className="text-foreground text-xl font-bold mb-2">
                 Welcome, {profile?.name?.trim() || 'there'}

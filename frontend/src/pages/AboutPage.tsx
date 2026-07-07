@@ -47,7 +47,7 @@ export default function AboutPage() {
             transition={{ duration: 4, repeat: Infinity }}
             className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary to-secondary p-1 shadow-xl shadow-primary/20"
           >
-            <img src="/medical-logo.png" alt="Healthcare monitoring agent logo" className="w-full h-full rounded-xl object-cover" />
+            <img src={`${import.meta.env.BASE_URL}medical-logo.png`} alt="Healthcare monitoring agent logo" className="w-full h-full rounded-xl object-cover" />
           </motion.div>
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
             <span className="text-gradient">About</span>{' '}

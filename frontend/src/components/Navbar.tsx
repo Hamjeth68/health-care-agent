@@ -49,7 +49,7 @@ export default function Navbar() {
           transition={{ duration: 0.5 }}
           className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow"
         >
-          <img src="/medical-logo.png" alt="Healthcare monitoring agent logo" className="w-full h-full object-cover" />
+          <img src={`${import.meta.env.BASE_URL}medical-logo.png`} alt="Healthcare monitoring agent logo" className="w-full h-full object-cover" />
         </motion.div>
         <span className="text-foreground font-bold text-lg tracking-tight hidden sm:block">
           Healthcare Monitoring Agent
