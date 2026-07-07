@@ -1,0 +1,26 @@
+name: Configure EC2 Backend
+
+on:
+  workflow_dispatch:
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write .env and restart service on EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ec2-52-70-190-14.compute-1.amazonaws.com
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          # No host_key provided — appleboy/ssh-action uses InsecureIgnoreHostKey()
+          # by default, equivalent to StrictHostKeyChecking=no
+          script: |
+            sudo tee /opt/health-care-agent/backend/.env > /dev/null << 'EOF'
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+            CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS }}
+            ENABLE_MODEL_WARMUP=false
+            EOF
+            sudo systemctl restart health-care-agent
+            sudo systemctl status health-care-agent --no-pager
