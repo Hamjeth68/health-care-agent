@@ -15,49 +15,80 @@ jobs:
           aws-region: us-east-1
 
       - name: Write .env and restart service via SSM
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CLERK_ISSUER: ${{ secrets.CLERK_ISSUER }}
+          CORS_ALLOW_ORIGINS: ${{ secrets.CORS_ALLOW_ORIGINS }}
         run: |
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "i-0577b1307ea0027e7" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "sudo tee /opt/health-care-agent/backend/.env > /dev/null <<'\''ENVEOF'\''",
-              "SUPABASE_URL=${{ secrets.SUPABASE_URL }}",
-              "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
-              "CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS }}",
-              "ENABLE_MODEL_WARMUP=false",
-              "ENVEOF",
+          python3 << 'PYEOF'
+          import base64, json, os, subprocess, sys, time
+
+          env_content = (
+              f"SUPABASE_URL={os.environ['SUPABASE_URL']}\n"
+              f"SUPABASE_SERVICE_ROLE_KEY={os.environ['SUPABASE_SERVICE_ROLE_KEY']}\n"
+              f"CLERK_ISSUER={os.environ['CLERK_ISSUER']}\n"
+              f"CORS_ALLOW_ORIGINS={os.environ['CORS_ALLOW_ORIGINS']}\n"
+              "ENABLE_MODEL_WARMUP=false\n"
+          )
+
+          # Base64-encode to avoid all shell-escaping issues
+          encoded = base64.b64encode(env_content.encode()).decode()
+
+          commands = [
+              f"echo {encoded} | base64 -d | sudo tee /opt/health-care-agent/backend/.env > /dev/null",
               "sudo systemctl restart health-care-agent",
               "sleep 3",
-              "sudo systemctl status health-care-agent --no-pager"
-            ]' \
-            --output text \
-            --query "Command.CommandId")
+              "sudo systemctl status health-care-agent --no-pager",
+          ]
 
-          echo "SSM Command ID: $COMMAND_ID"
+          payload = {
+              "InstanceIds": ["i-0577b1307ea0027e7"],
+              "DocumentName": "AWS-RunShellScript",
+              "Parameters": {"commands": commands},
+          }
 
-          # Poll until the command finishes (max 120 seconds)
-          for i in $(seq 1 24); do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "i-0577b1307ea0027e7" \
-              --query "Status" \
-              --output text 2>/dev/null || echo "Pending")
-            echo "[$i] Status: $STATUS"
-            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "TimedOut" || "$STATUS" == "Cancelled" ]]; then
-              break
-            fi
-            sleep 5
-          done
+          with open("/tmp/ssm-input.json", "w") as f:
+              json.dump(payload, f)
 
-          # Print output
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "i-0577b1307ea0027e7" \
-            --query "[StandardOutputContent, StandardErrorContent]" \
-            --output text
+          result = subprocess.run(
+              ["aws", "ssm", "send-command",
+               "--cli-input-json", "file:///tmp/ssm-input.json",
+               "--query", "Command.CommandId",
+               "--output", "text"],
+              capture_output=True, text=True, check=True
+          )
+          command_id = result.stdout.strip()
+          print(f"SSM Command ID: {command_id}")
 
-          # Fail the job if the command did not succeed
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "SSM command failed with status: $STATUS"
-            exit 1
-          fi
+          # Poll until done (max 120 s)
+          for i in range(24):
+              time.sleep(5)
+              r = subprocess.run(
+                  ["aws", "ssm", "get-command-invocation",
+                   "--command-id", command_id,
+                   "--instance-id", "i-0577b1307ea0027e7",
+                   "--query", "Status",
+                   "--output", "text"],
+                  capture_output=True, text=True
+              )
+              status = r.stdout.strip() if r.returncode == 0 else "Pending"
+              print(f"[{i+1}] Status: {status}")
+              if status in ("Success", "Failed", "TimedOut", "Cancelled"):
+                  break
+
+          # Print stdout/stderr from the remote command
+          r = subprocess.run(
+              ["aws", "ssm", "get-command-invocation",
+               "--command-id", command_id,
+               "--instance-id", "i-0577b1307ea0027e7",
+               "--query", "[StandardOutputContent, StandardErrorContent]",
+               "--output", "text"],
+              capture_output=True, text=True
+          )
+          print(r.stdout)
+
+          if status != "Success":
+              print(f"SSM command failed with status: {status}", file=sys.stderr)
+              sys.exit(1)
+          PYEOF

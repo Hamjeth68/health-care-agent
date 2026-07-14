@@ -100,6 +100,7 @@ def _get_allowed_origins() -> list[str]:
 	return [
 		"http://localhost:5173",
 		"http://127.0.0.1:5173",
+		"https://hamjeth68.github.io",
 		"https://team-agent-wars-healthcare-monitori.vercel.app",
 		"http://localhost:8080",
 	]
