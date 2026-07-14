@@ -1,0 +1,7 @@
+version: 2
+# The Supabase anon key is a public, publishable credential equivalent to a
+# Firebase apiKey. It is explicitly designed to be embedded in client-side code.
+# Supabase's own docs state the anon key is safe to commit.
+matches_ignore:
+  - name: "Supabase anon key (public publishable credential)"
+    match: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qZ3preHZmdG9jY2Rja2NpdmFqIiwicm9sZSI6ImFub24"

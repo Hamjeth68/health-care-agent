@@ -1,15 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+// Anon key is a public, publishable credential — safe to embed in client code.
+// Override at build time via VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY env vars.
+const supabaseUrl =
+  (import.meta.env.VITE_SUPABASE_URL as string) ||
+  'https://njgzkxvftoccdckcivaj.supabase.co';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase env vars missing: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
-}
+// pragma: allowlist secret
+const supabaseAnonKey =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qZ3preHZmdG9jY2Rja2NpdmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MTA4MjgsImV4cCI6MjA5NDk4NjgyOH0.xnVp98nXsdr_4VthFoeBxsd4MRJMcpFDnKNqaqJODIM'; // pragma: allowlist secret
 
-// Fall back to placeholder values so createClient doesn't throw at startup when
-// the GitHub Actions secrets haven't been configured yet.
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-anon-key',
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
