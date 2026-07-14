@@ -5,8 +5,6 @@ from datetime import datetime, timezone
 import os
 import threading
 import asyncio
-import jwt
-from jwt import PyJWKClient
 from supabase import create_client, Client
 from utils.download import download_file
 from dotenv import load_dotenv
@@ -16,21 +14,10 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-CLERK_JWT_KEY = os.getenv("CLERK_JWT_KEY", "").replace("\\n", "\n").strip()
-CLERK_ISSUER = os.getenv("CLERK_ISSUER", "").rstrip("/")
-CLERK_AUTHORIZED_PARTIES = {
-	origin.strip().rstrip("/")
-	for origin in os.getenv("CLERK_AUTHORIZED_PARTIES", "").split(",")
-	if origin.strip()
-}
 
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY:
 	supabase = create_client(SUPABASE_URL.rstrip("/").removesuffix("/rest/v1"), SUPABASE_KEY)
-
-clerk_jwks_client: PyJWKClient | None = None
-if not CLERK_JWT_KEY and CLERK_ISSUER:
-	clerk_jwks_client = PyJWKClient(f"{CLERK_ISSUER}/.well-known/jwks.json")
 
 FAISS_PATH = os.path.join(BASE_DIR, "medical_vector_db.faiss")
 DATA_PATH = os.path.join(BASE_DIR, "medical_rag_dataset.json")
@@ -167,13 +154,12 @@ def _require_supabase() -> Client:
 	return supabase
 
 
-def _extract_bearer_token(authorization: str | None) -> str:
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
 	if not authorization:
 		raise HTTPException(
 			status_code=status.HTTP_401_UNAUTHORIZED,
 			detail="Missing Authorization header.",
 		)
-
 	scheme, _, token = authorization.partition(" ")
 	if scheme.lower() != "bearer" or not token:
 		raise HTTPException(
@@ -181,71 +167,26 @@ def _extract_bearer_token(authorization: str | None) -> str:
 			detail="Authorization header must use Bearer token.",
 		)
 
-	return token
-
-
-def _get_clerk_signing_key(token: str):
-	if CLERK_JWT_KEY:
-		return CLERK_JWT_KEY
-
-	if clerk_jwks_client:
-		return clerk_jwks_client.get_signing_key_from_jwt(token).key
-
-	raise HTTPException(
-		status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-		detail="Clerk JWT verification is not configured on the backend.",
-	)
-
-
-def _verify_clerk_token(token: str) -> dict:
+	client = _require_supabase()
 	try:
-		signing_key = _get_clerk_signing_key(token)
-		claims = jwt.decode(
-			token,
-			signing_key,
-			algorithms=["RS256"],
-			issuer=CLERK_ISSUER or None,
-			options={
-				"require": ["exp", "iat", "sub"],
-				"verify_aud": False,
-			},
-			leeway=60,
-		)
+		response = client.auth.get_user(token)
+		u = response.user
+		if not u:
+			raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session.")
 	except HTTPException:
 		raise
 	except Exception as exc:
 		raise HTTPException(
 			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Invalid or expired Clerk session.",
+			detail="Invalid or expired session.",
 		) from exc
 
-	if not claims.get("sub"):
-		raise HTTPException(
-			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Clerk session is missing a subject.",
-		)
-
-	if CLERK_AUTHORIZED_PARTIES:
-		authorized_party = str(claims.get("azp", "")).rstrip("/")
-		if authorized_party not in CLERK_AUTHORIZED_PARTIES:
-			raise HTTPException(
-				status_code=status.HTTP_401_UNAUTHORIZED,
-				detail="Clerk session was issued for an unauthorized frontend.",
-			)
-
-	return claims
-
-
-def get_current_user(authorization: str | None = Header(default=None)) -> dict:
-	token = _extract_bearer_token(authorization)
-	claims = _verify_clerk_token(token)
-
 	return {
-		"id": claims["sub"],
-		"email": claims.get("email") or claims.get("email_address"),
+		"id": u.id,
+		"email": u.email,
 		"metadata": {
-			"name": claims.get("name") or claims.get("full_name"),
-			"phone": claims.get("phone_number"),
+			"name": (u.user_metadata or {}).get("full_name") or (u.user_metadata or {}).get("name"),
+			"phone": (u.user_metadata or {}).get("phone"),
 		},
 	}
 
@@ -440,9 +381,9 @@ async def update_profile(req: ProfileUpdateRequest, current_user: dict = Depends
 @app.post("/auth/profile")
 async def sync_profile(req: ProfileSyncRequest, current_user: dict = Depends(get_current_user)):
 	client = _require_supabase()
-	metadata = current_user["metadata"]
-	name = req.name if req.name is not None else metadata.get("name")
-	phone = req.phone if req.phone is not None else metadata.get("phone")
+	meta = current_user.get("metadata") or {}
+	name = req.name if req.name is not None else meta.get("name")
+	phone = req.phone if req.phone is not None else meta.get("phone")
 
 	try:
 		res = client.table("profiles") \

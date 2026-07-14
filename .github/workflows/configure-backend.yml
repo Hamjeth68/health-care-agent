@@ -18,7 +18,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CLERK_ISSUER: ${{ secrets.CLERK_ISSUER }}
           CORS_ALLOW_ORIGINS: ${{ secrets.CORS_ALLOW_ORIGINS }}
         run: |
           python3 << 'PYEOF'
@@ -27,7 +26,6 @@ jobs:
           env_content = (
               f"SUPABASE_URL={os.environ['SUPABASE_URL']}\n"
               f"SUPABASE_SERVICE_ROLE_KEY={os.environ['SUPABASE_SERVICE_ROLE_KEY']}\n"
-              f"CLERK_ISSUER={os.environ['CLERK_ISSUER']}\n"
               f"CORS_ALLOW_ORIGINS={os.environ['CORS_ALLOW_ORIGINS']}\n"
               "ENABLE_MODEL_WARMUP=false\n"
           )
