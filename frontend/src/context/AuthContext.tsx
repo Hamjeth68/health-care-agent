@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/clerk-react';
+import type { Session, User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { getProfile, setAuthTokenProvider, syncAuthenticatedProfile } from '../services/api';
 
 export interface Profile {
@@ -27,39 +28,53 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function toAppUser(clerkUser: ReturnType<typeof useUser>['user']): AppUser | null {
-  if (!clerkUser) return null;
-
+function toAppUser(user: User | null): AppUser | null {
+  if (!user) return null;
   return {
-    id: clerkUser.id,
-    email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
-    fullName: clerkUser.fullName,
-    phone: clerkUser.primaryPhoneNumber?.phoneNumber ?? null,
+    id: user.id,
+    email: user.email ?? null,
+    fullName: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
+    phone: user.user_metadata?.phone ?? null,
   };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, getToken } = useClerkAuth();
-  const { user: clerkUser } = useUser();
-  const { signOut } = useClerk();
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authError, setAuthError] = useState('');
 
-  const user = useMemo(() => toAppUser(clerkUser), [clerkUser]);
-  const loading = !isLoaded;
+  const user = useMemo(() => toAppUser(session?.user ?? null), [session]);
 
-  const clearAuthError = useCallback(() => {
-    setAuthError('');
+  const clearAuthError = useCallback(() => setAuthError(''), []);
+
+  // Wire up the token provider used by api.ts
+  useEffect(() => {
+    setAuthTokenProvider(async () => {
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    });
+    return () => setAuthTokenProvider(null);
   }, []);
 
+  // Listen for auth state changes
   useEffect(() => {
-    setAuthTokenProvider(async () => getToken());
-    return () => setAuthTokenProvider(null);
-  }, [getToken]);
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const refreshProfile = useCallback(async (userId?: string) => {
     const targetId = userId ?? user?.id;
-    if (!targetId || !isSignedIn) {
+    if (!targetId || !session) {
       setProfile(null);
       return;
     }
@@ -70,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profileData);
         return;
       }
-
       const synced = await syncAuthenticatedProfile(user?.fullName ?? undefined, user?.phone ?? undefined);
       setProfile(synced.profile);
     } catch {
@@ -81,24 +95,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       }
     }
-  }, [isSignedIn, user?.fullName, user?.id, user?.phone]);
+  }, [session, user?.fullName, user?.id, user?.phone]);
 
   useEffect(() => {
     if (loading) return;
-
-    if (!isSignedIn || !user?.id) {
+    if (!user?.id) {
       setProfile(null);
       return;
     }
-
     refreshProfile(user.id);
-  }, [isSignedIn, loading, refreshProfile, user?.id]);
+  }, [loading, refreshProfile, user?.id]);
 
   const logout = useCallback(async () => {
     setAuthError('');
-    await signOut({ redirectUrl: '/' });
+    await supabase.auth.signOut();
     setProfile(null);
-  }, [signOut]);
+  }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

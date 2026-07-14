@@ -14,23 +14,28 @@ from dotenv import load_dotenv
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+# Supabase project reference — used to build the public JWKS URL for token
+# verification without requiring a service role key on the server.
+_SUPABASE_PROJECT = "njgzkxvftoccdckcivaj"
+SUPABASE_URL = os.getenv("SUPABASE_URL", f"https://{_SUPABASE_PROJECT}.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-CLERK_JWT_KEY = os.getenv("CLERK_JWT_KEY", "").replace("\\n", "\n").strip()
-CLERK_ISSUER = os.getenv("CLERK_ISSUER", "").rstrip("/")
-CLERK_AUTHORIZED_PARTIES = {
-	origin.strip().rstrip("/")
-	for origin in os.getenv("CLERK_AUTHORIZED_PARTIES", "").split(",")
-	if origin.strip()
-}
 
 supabase: Client | None = None
-if SUPABASE_URL and SUPABASE_KEY:
+if SUPABASE_KEY:
 	supabase = create_client(SUPABASE_URL.rstrip("/").removesuffix("/rest/v1"), SUPABASE_KEY)
 
-clerk_jwks_client: PyJWKClient | None = None
-if not CLERK_JWT_KEY and CLERK_ISSUER:
-	clerk_jwks_client = PyJWKClient(f"{CLERK_ISSUER}/.well-known/jwks.json")
+# Supabase Auth exposes a public JWKS so tokens can be verified without the
+# service role key — chat works even before EC2 is fully configured.
+_jwks_client: PyJWKClient | None = None
+_jwks_lock = threading.Lock()
+
+def _get_jwks_client() -> PyJWKClient:
+	global _jwks_client
+	with _jwks_lock:
+		if _jwks_client is None:
+			base = SUPABASE_URL.rstrip("/").removesuffix("/rest/v1")
+			_jwks_client = PyJWKClient(f"{base}/auth/v1/.well-known/jwks.json")
+	return _jwks_client
 
 FAISS_PATH = os.path.join(BASE_DIR, "medical_vector_db.faiss")
 DATA_PATH = os.path.join(BASE_DIR, "medical_rag_dataset.json")
@@ -100,6 +105,7 @@ def _get_allowed_origins() -> list[str]:
 	return [
 		"http://localhost:5173",
 		"http://127.0.0.1:5173",
+		"https://hamjeth68.github.io",
 		"https://team-agent-wars-healthcare-monitori.vercel.app",
 		"http://localhost:8080",
 	]
@@ -166,87 +172,58 @@ def _require_supabase() -> Client:
 	return supabase
 
 
-def _extract_bearer_token(authorization: str | None) -> str:
+def get_current_user(authorization: str | None = Header(default=None)) -> dict:
 	if not authorization:
-		raise HTTPException(
-			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Missing Authorization header.",
-		)
-
+		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing Authorization header.")
 	scheme, _, token = authorization.partition(" ")
 	if scheme.lower() != "bearer" or not token:
-		raise HTTPException(
-			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Authorization header must use Bearer token.",
-		)
+		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header must use Bearer token.")
 
-	return token
-
-
-def _get_clerk_signing_key(token: str):
-	if CLERK_JWT_KEY:
-		return CLERK_JWT_KEY
-
-	if clerk_jwks_client:
-		return clerk_jwks_client.get_signing_key_from_jwt(token).key
-
-	raise HTTPException(
-		status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-		detail="Clerk JWT verification is not configured on the backend.",
-	)
-
-
-def _verify_clerk_token(token: str) -> dict:
+	# Primary path: verify via Supabase's public JWKS (no service role key needed).
 	try:
-		signing_key = _get_clerk_signing_key(token)
+		jwks = _get_jwks_client()
+		signing_key = jwks.get_signing_key_from_jwt(token)
 		claims = jwt.decode(
 			token,
-			signing_key,
+			signing_key.key,
 			algorithms=["RS256"],
-			issuer=CLERK_ISSUER or None,
-			options={
-				"require": ["exp", "iat", "sub"],
-				"verify_aud": False,
-			},
+			options={"require": ["exp", "iat", "sub"], "verify_aud": False},
 			leeway=60,
 		)
-	except HTTPException:
-		raise
-	except Exception as exc:
-		raise HTTPException(
-			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Invalid or expired Clerk session.",
-		) from exc
+		user_id = claims.get("sub")
+		if not user_id:
+			raise ValueError("No sub claim")
+		meta = claims.get("user_metadata") or {}
+		return {
+			"id": user_id,
+			"email": claims.get("email"),
+			"metadata": {
+				"name": meta.get("full_name") or meta.get("name"),
+				"phone": meta.get("phone"),
+			},
+		}
+	except Exception:
+		pass
 
-	if not claims.get("sub"):
-		raise HTTPException(
-			status_code=status.HTTP_401_UNAUTHORIZED,
-			detail="Clerk session is missing a subject.",
-		)
+	# Fallback: use the admin client if the service role key is configured.
+	if supabase:
+		try:
+			response = supabase.auth.get_user(token)
+			u = response.user
+			if u:
+				um = u.user_metadata or {}
+				return {
+					"id": u.id,
+					"email": u.email,
+					"metadata": {
+						"name": um.get("full_name") or um.get("name"),
+						"phone": um.get("phone"),
+					},
+				}
+		except Exception:
+			pass
 
-	if CLERK_AUTHORIZED_PARTIES:
-		authorized_party = str(claims.get("azp", "")).rstrip("/")
-		if authorized_party not in CLERK_AUTHORIZED_PARTIES:
-			raise HTTPException(
-				status_code=status.HTTP_401_UNAUTHORIZED,
-				detail="Clerk session was issued for an unauthorized frontend.",
-			)
-
-	return claims
-
-
-def get_current_user(authorization: str | None = Header(default=None)) -> dict:
-	token = _extract_bearer_token(authorization)
-	claims = _verify_clerk_token(token)
-
-	return {
-		"id": claims["sub"],
-		"email": claims.get("email") or claims.get("email_address"),
-		"metadata": {
-			"name": claims.get("name") or claims.get("full_name"),
-			"phone": claims.get("phone_number"),
-		},
-	}
+	raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session.")
 
 
 def _assert_same_user(requested_user_id: str, current_user: dict) -> None:
@@ -439,9 +416,9 @@ async def update_profile(req: ProfileUpdateRequest, current_user: dict = Depends
 @app.post("/auth/profile")
 async def sync_profile(req: ProfileSyncRequest, current_user: dict = Depends(get_current_user)):
 	client = _require_supabase()
-	metadata = current_user["metadata"]
-	name = req.name if req.name is not None else metadata.get("name")
-	phone = req.phone if req.phone is not None else metadata.get("phone")
+	meta = current_user.get("metadata") or {}
+	name = req.name if req.name is not None else meta.get("name")
+	phone = req.phone if req.phone is not None else meta.get("phone")
 
 	try:
 		res = client.table("profiles") \

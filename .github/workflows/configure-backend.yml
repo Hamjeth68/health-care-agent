@@ -7,20 +7,86 @@ jobs:
   configure:
     runs-on: ubuntu-latest
     steps:
-      - name: Write .env and restart service on EC2
-        uses: appleboy/ssh-action@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ec2-52-70-190-14.compute-1.amazonaws.com
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          # No host_key provided — appleboy/ssh-action uses InsecureIgnoreHostKey()
-          # by default, equivalent to StrictHostKeyChecking=no
-          script: |
-            sudo tee /opt/health-care-agent/backend/.env > /dev/null << 'EOF'
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-            CORS_ALLOW_ORIGINS=${{ secrets.CORS_ALLOW_ORIGINS }}
-            ENABLE_MODEL_WARMUP=false
-            EOF
-            sudo systemctl restart health-care-agent
-            sudo systemctl status health-care-agent --no-pager
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Write .env and restart service via SSM
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CORS_ALLOW_ORIGINS: ${{ secrets.CORS_ALLOW_ORIGINS }}
+        run: |
+          python3 << 'PYEOF'
+          import base64, json, os, subprocess, sys, time
+
+          env_content = (
+              f"SUPABASE_URL={os.environ['SUPABASE_URL']}\n"
+              f"SUPABASE_SERVICE_ROLE_KEY={os.environ['SUPABASE_SERVICE_ROLE_KEY']}\n"
+              f"CORS_ALLOW_ORIGINS={os.environ['CORS_ALLOW_ORIGINS']}\n"
+              "ENABLE_MODEL_WARMUP=false\n"
+          )
+
+          # Base64-encode to avoid all shell-escaping issues
+          encoded = base64.b64encode(env_content.encode()).decode()
+
+          commands = [
+              f"echo {encoded} | base64 -d | sudo tee /opt/health-care-agent/backend/.env > /dev/null",
+              "sudo systemctl restart health-care-agent",
+              "sleep 3",
+              "sudo systemctl status health-care-agent --no-pager",
+          ]
+
+          payload = {
+              "InstanceIds": ["i-0577b1307ea0027e7"],
+              "DocumentName": "AWS-RunShellScript",
+              "Parameters": {"commands": commands},
+          }
+
+          with open("/tmp/ssm-input.json", "w") as f:
+              json.dump(payload, f)
+
+          result = subprocess.run(
+              ["aws", "ssm", "send-command",
+               "--cli-input-json", "file:///tmp/ssm-input.json",
+               "--query", "Command.CommandId",
+               "--output", "text"],
+              capture_output=True, text=True, check=True
+          )
+          command_id = result.stdout.strip()
+          print(f"SSM Command ID: {command_id}")
+
+          # Poll until done (max 120 s)
+          for i in range(24):
+              time.sleep(5)
+              r = subprocess.run(
+                  ["aws", "ssm", "get-command-invocation",
+                   "--command-id", command_id,
+                   "--instance-id", "i-0577b1307ea0027e7",
+                   "--query", "Status",
+                   "--output", "text"],
+                  capture_output=True, text=True
+              )
+              status = r.stdout.strip() if r.returncode == 0 else "Pending"
+              print(f"[{i+1}] Status: {status}")
+              if status in ("Success", "Failed", "TimedOut", "Cancelled"):
+                  break
+
+          # Print stdout/stderr from the remote command
+          r = subprocess.run(
+              ["aws", "ssm", "get-command-invocation",
+               "--command-id", command_id,
+               "--instance-id", "i-0577b1307ea0027e7",
+               "--query", "[StandardOutputContent, StandardErrorContent]",
+               "--output", "text"],
+              capture_output=True, text=True
+          )
+          print(r.stdout)
+
+          if status != "Success":
+              print(f"SSM command failed with status: {status}", file=sys.stderr)
+              sys.exit(1)
+          PYEOF
