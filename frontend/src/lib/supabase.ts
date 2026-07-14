@@ -7,4 +7,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase env vars missing: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Fall back to placeholder values so createClient doesn't throw at startup when
+// the GitHub Actions secrets haven't been configured yet.
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-anon-key',
+);
